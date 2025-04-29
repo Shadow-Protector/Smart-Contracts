@@ -32,10 +32,7 @@ contract ConditionEvaulator {
     address public immutable morphoPool;
     address public immutable eulerPool;
 
-    constructor(
-        address _aavePool,
-        address _morphoPool
-    ) {
+    constructor(address _aavePool, address _morphoPool) {
         aavePool = _aavePool;
         morphoPool = _morphoPool;
     }
@@ -60,23 +57,25 @@ contract ConditionEvaulator {
         }
     }
 
-    function checkChainlinkCondition(address _V3InterfaceAddress, uint8 parameter, uint256 conditionValue) public view returns (bool) {
-
+    function checkChainlinkCondition(address _V3InterfaceAddress, uint8 parameter, uint256 conditionValue)
+        public
+        view
+        returns (bool)
+    {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(_V3InterfaceAddress);
-        (, int256 price, , , ) = priceFeed.latestRoundData();
+        (, int256 price,,,) = priceFeed.latestRoundData();
         uint256 priceValue = uint256(price);
 
-        // Greater than Value 
+        // Greater than Value
         if (parameter == 0) {
             return conditionValue > priceValue;
         }
         // Less than Value or equal to
-         else if (parameter == 1) {
+        else if (parameter == 1) {
             return conditionValue <= priceValue;
-        } 
+        }
 
         return false;
-
     }
 
     function checkAaveCondition() internal view returns (bool) {}
