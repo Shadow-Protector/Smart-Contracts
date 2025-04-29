@@ -15,7 +15,7 @@ struct OrderDetails {
 contract Vault {
     // State variables
     address private immutable owner;
-
+    address private immutable factoryContract;
     // Mappings
     mapping(uint32 => address) private chainIdToAddress;
     mapping(bytes32 => OrderDetails) private orders;
@@ -29,8 +29,9 @@ contract Vault {
     error ConditionValueIsZero();
     error InvalidOrderId();
 
-    constructor(address _owner) {
+    constructor(address _owner, address _factoryContract) {
         owner = _owner;
+        factoryContract = _factoryContract;
     }
 
     modifier OnlyOwner() {
@@ -82,7 +83,7 @@ contract Vault {
         // Transfer the tip amount from the sender to the contract
         IERC20(tipToken).transferFrom(msg.sender, address(this), tipAmount);
 
-        // Emit Event order creation
+        // TODO: Emit Event order creation
     }
 
     function cancelOrder(bytes32 orderId) public OnlyOwner {
