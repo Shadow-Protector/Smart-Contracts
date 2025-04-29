@@ -78,9 +78,9 @@ contract ConditionEvaulator {
         return false;
     }
 
-    function checkAaveCondition() internal view returns (bool) {}
+    function checkAaveCondition() public view returns (bool) {}
 
-    function checkMorphoCondition() internal view returns (bool) {}
+    function checkMorphoCondition() public view returns (bool) {}
 
-    function checkEulerCondition() internal view returns (bool) {}
+    function checkEulerCondition() public view returns (bool) {}
 }
