@@ -5,6 +5,7 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {AggregatorV3Interface} from "foundry-chainlink-toolkit/src/interfaces/feeds/AggregatorV3Interface.sol";
 
 import {IAavePool} from "./interfaces/IAavePool.sol";
+import {IPriceOracleGetter} from "./interfaces/IAavePriceGetter.sol";
 
 // Condition parameters (32 bytes)
 // -> (platform type) (type = number)
@@ -30,6 +31,7 @@ import {IAavePool} from "./interfaces/IAavePool.sol";
 
 contract ConditionEvaulator {
     address public immutable aavePool;
+    address public immutable aavePriceGetter;
     address public immutable morphoPool;
     address public immutable eulerPool;
 
@@ -110,9 +112,11 @@ contract ConditionEvaulator {
         } // Check paramter is less or equal to ltv
         else if (_parameter == 5) {
             return conditionValue <= ltv;
-        } else if (_parameter == 6) {
+        } // Check paramter is greater than healthFactor
+        else if (_parameter == 6) {
             return conditionValue > healthFactor;
-        } else if (_parameter == 7) {
+        } // Check paramter is less or equal to healthFactor
+        else if (_parameter == 7) {
             return conditionValue <= healthFactor;
         }
 
@@ -123,7 +127,16 @@ contract ConditionEvaulator {
         public
         view
         returns (bool)
-    {}
+    {
+        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
+        uint256 assetPrice = IPriceOracleGetter(aavePriceGetter).getAssetPrice(_asset);
+
+        address variableDebtToken = IAavePool(aavePool).getReserveVariableDebtToken(_asset);
+
+        uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_borrower);
+
+        uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
+    }
 
     function checkAaveCollateralCondition(address _asset, address _borrower, uint8 _parameter, uint256 conditionValue)
         public
