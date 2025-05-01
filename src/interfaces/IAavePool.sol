@@ -21,4 +21,6 @@ interface IAavePool {
         );
 
     function getReserveVariableDebtToken(address asset) external view returns (address);
+
+    function getReserveAToken(address asset) external view returns (address);
 }

@@ -136,13 +136,24 @@ contract ConditionEvaulator {
         uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_borrower);
 
         uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
+
+        return false;
     }
 
     function checkAaveCollateralCondition(address _asset, address _borrower, uint8 _parameter, uint256 conditionValue)
         public
         view
         returns (bool)
-    {}
+    {
+        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
+        uint256 assetPrice = IPriceOracleGetter(aavePriceGetter).getAssetPrice(_asset);
+
+        address aToken = IAavePool(aavePool).getReserveAToken(_borrower);
+
+        uint256 collateralBalance = IERC20(aToken).balanceOf(_borrower);
+
+        uint256 collateralBalanceInBaseCurrency = (collateralBalance * assetPrice) / assetUnit;
+    }
 
     function checkMorphoCondition() public view returns (bool) {}
 
