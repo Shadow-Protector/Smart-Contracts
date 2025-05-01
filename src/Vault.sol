@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import {IERC20} from "foundry-chainlink-toolkit/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "forge-std/interfaces/IERC20.sol";
 
 struct OrderDetails {
     uint32 destinationChainId;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.26;
 
 interface IAavePool {
     function supply(address asset, uint256 amount, address onBehalfOf, uint16 referralCode) external;
@@ -19,4 +19,6 @@ interface IAavePool {
             uint256 ltv,
             uint256 healthFactor
         );
+
+    function getReserveVariableDebtToken(address asset) external view returns (address);
 }
