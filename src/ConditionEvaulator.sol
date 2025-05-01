@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import {AggregatorV3Interface} from "foundry-chainlink-toolkit/src/interfaces/feeds/AggregatorV3Interface.sol";
 
-// /Users/anmolgoyal/dev/base-batch/smart-contracts/lib/foundry-chainlink-toolkit/lib/chainlink-brownie-contracts/contracts/src/interfaces/feeds/AggregatorV3Interface.sol
+import {IAavePool} from "./interfaces/IAavePool.sol";
 
 // Condition parameters (32 bytes)
 // -> (platform type) (type = number)
@@ -39,18 +39,22 @@ contract ConditionEvaulator {
 
     function evaluateCondition(
         uint8 _platform,
-        address _borrower,
         address _platformAddress,
+        address _borrower,
         uint8 _parameter,
         uint256 _conditionValue
     ) public view returns (bool) {
         if (_platform == 0) {
             return checkChainlinkCondition(_platformAddress, _parameter, _conditionValue);
         } else if (_platform == 1) {
-            return checkAaveCondition();
+            return checkAavePortfioCondition(_borrower, _parameter, _conditionValue);
         } else if (_platform == 2) {
-            return checkMorphoCondition();
+            return checkAaveCollateralCondition(_platformAddress, _borrower, _parameter, _conditionValue);
         } else if (_platform == 3) {
+            return checkAaveCollateralCondition(_platformAddress, _borrower, _parameter, _conditionValue);
+        } else if (_platform == 4) {
+            return checkMorphoCondition();
+        } else if (_platform == 5) {
             return checkEulerCondition();
         } else {
             return false;
@@ -78,7 +82,53 @@ contract ConditionEvaulator {
         return false;
     }
 
-    function checkAaveCondition() public view returns (bool) {}
+    function checkAavePortfioCondition(address _borrower, uint8 _parameter, uint256 conditionValue)
+        public
+        view
+        returns (bool)
+    {
+        // Overall Portfolio Value
+        (uint256 totalCollateralBase, uint256 totalDebtBase,,, uint256 ltv, uint256 healthFactor) =
+            IAavePool(aavePool).getUserAccountData(_borrower);
+
+        // Check paramter is greater than totalCollateralBase
+        if (_parameter == 0) {
+            return conditionValue > totalCollateralBase;
+        } // Check paramter is less or equal to totalCollateralBase
+        else if (_parameter == 1) {
+            return conditionValue <= totalCollateralBase;
+        } // Check paramter is greater than totalDebtBase
+        else if (_parameter == 2) {
+            return conditionValue > totalDebtBase;
+        } // Check paramter is less or equal to totalDebtBase
+        else if (_parameter == 3) {
+            return conditionValue <= totalDebtBase;
+        } // Check paramter is greater than ltv
+        else if (_parameter == 4) {
+            return conditionValue > ltv;
+        } // Check paramter is less or equal to ltv
+        else if (_parameter == 5) {
+            return conditionValue <= ltv;
+        } else if (_parameter == 6) {
+            return conditionValue > healthFactor;
+        } else if (_parameter == 7) {
+            return conditionValue <= healthFactor;
+        }
+
+        return false;
+    }
+
+    function checkAaveDebtCondition(address _asset, address _borrower, uint8 _parameter, uint256 conditionValue)
+        public
+        view
+        returns (bool)
+    {}
+
+    function checkAaveCollateralCondition(address _asset, address _borrower, uint8 _parameter, uint256 conditionValue)
+        public
+        view
+        returns (bool)
+    {}
 
     function checkMorphoCondition() public view returns (bool) {}
 
