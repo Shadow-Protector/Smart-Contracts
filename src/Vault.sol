@@ -56,7 +56,7 @@ contract Vault {
         uint256 conditionValue,
         address tipToken,
         uint256 tipAmount
-    ) public OnlyOwner {
+    ) public payable OnlyOwner {
         // Ensure the condition amount is greater than zero
         if (conditionValue == 0) {
             revert ConditionValueIsZero();
@@ -86,7 +86,10 @@ contract Vault {
         // Transfer the tip amount from the sender to the contract
         IERC20(tipToken).transferFrom(msg.sender, address(this), tipAmount);
 
-        // TODO: Emit Event order creation
+        // Emit Event order creation
+        IFactory(factoryContract).emitOrderCreation{value: msg.value}(
+            _platform, _platformAddress, _parameter, destinationChainId, _salt, conditionValue, owner
+        );
     }
 
     function cancelOrder(bytes32 orderId) public OnlyOwner {
@@ -99,6 +102,9 @@ contract Vault {
 
         // Delete the order from the mapping
         delete orders[orderId];
+
+        // Emit Event order cancellation
+        IFactory(factoryContract).emitCancelOrder(owner, orderId);
     }
 
     function executeOrder(bytes32 orderId, address _solver) public payable {
@@ -110,6 +116,9 @@ contract Vault {
         OrderDetails memory order = orders[orderId];
 
         IERC20(order.tipToken).transfer(_solver, order.tipAmount);
+
+        // Emit Event order execution
+        IFactory(factoryContract).emitExecuteOrder(owner, orderId);
     }
 
     function withdrawNativeToken(uint256 _amount) external OnlyOwner {

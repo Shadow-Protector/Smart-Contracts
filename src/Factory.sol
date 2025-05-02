@@ -58,7 +58,7 @@ contract VaultFactory {
         address _owner
     ) external {}
 
-    function createOrder(
+    function emitOrderCreation(
         uint8 _platform,
         address _platformAddress,
         uint8 _parameter,
