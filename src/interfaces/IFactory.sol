@@ -10,5 +10,5 @@ interface IFactory {
         address _borrower,
         uint8 _parameter,
         uint256 _conditionValue
-    ) external view returns (bool) ;
+    ) external view returns (bool);
 }
