@@ -72,14 +72,17 @@ contract ConditionEvaulator {
         AggregatorV3Interface priceFeed = AggregatorV3Interface(_V3InterfaceAddress);
         (, int256 price,,,) = priceFeed.latestRoundData();
         uint256 priceValue = uint256(price);
+        uint256 priceDecimals = 10 ** priceFeed.decimals();
+
+        uint256 PriceWithTwoDecimals = (priceValue * 100)/ priceDecimals;
 
         // Greater than Value
         if (parameter == 0) {
-            return conditionValue > priceValue;
+            return conditionValue > PriceWithTwoDecimals;
         }
         // Less than Value or equal to
         else if (parameter == 1) {
-            return conditionValue <= priceValue;
+            return conditionValue <= PriceWithTwoDecimals;
         }
 
         return false;
