@@ -137,6 +137,28 @@ contract ConditionEvaulator {
 
         uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
 
+        // Comparing Values
+
+        // Greater than asset Price
+        if (_parameter == 0) {
+            return conditionValue > assetPrice;
+        } // Less than or equal to asset Price
+        else if (_parameter == 1) {
+            return conditionValue <= assetPrice;
+        } // Greater than debt balance
+        else if (_parameter == 2) {
+            return conditionValue > debtBalance;
+        } // Less than or equal to debt balance
+        else if (_parameter == 3) {
+            return conditionValue <= debtBalance;
+        } // Greater than debt balance in base currency
+        else if (_parameter == 4) {
+            return conditionValue > debtBalanceInBaseCurrency;
+        } // Less than or equal to debt balance in base currency
+        else if (_parameter == 5) {
+            return conditionValue <= debtBalanceInBaseCurrency;
+        }
+
         return false;
     }
 
@@ -153,6 +175,30 @@ contract ConditionEvaulator {
         uint256 collateralBalance = IERC20(aToken).balanceOf(_borrower);
 
         uint256 collateralBalanceInBaseCurrency = (collateralBalance * assetPrice) / assetUnit;
+
+        // Comparing Values
+
+        // Greater than asset Price
+        if (_parameter == 0) {
+            return conditionValue > assetPrice;
+        } // Less than or equal to asset Price
+        else if (_parameter == 1) {
+            return conditionValue <= assetPrice;
+        } // Greater than debt balance
+        else if (_parameter == 2) {
+            return conditionValue > collateralBalance;
+        } // Less than or equal to debt balance
+        else if (_parameter == 3) {
+            return conditionValue <= collateralBalance;
+        } // Greater than debt balance in base currency
+        else if (_parameter == 4) {
+            return conditionValue > collateralBalanceInBaseCurrency;
+        } // Less than or equal to debt balance in base currency
+        else if (_parameter == 5) {
+            return conditionValue <= collateralBalanceInBaseCurrency;
+        }
+
+        return false;
     }
 
     function checkMorphoCondition() public view returns (bool) {}
