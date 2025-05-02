@@ -31,6 +31,8 @@ contract Vault {
     error ConditionValueIsZero();
     error InvalidOrderId();
 
+    error ConditionEvaluationFailed();
+
     constructor(address _owner, address _factoryContract) {
         owner = _owner;
         factoryContract = _factoryContract;
@@ -107,13 +109,32 @@ contract Vault {
         IFactory(factoryContract).emitCancelOrder(owner, orderId);
     }
 
-    function executeOrder(bytes32 orderId, address _solver) public payable {
+    function executeOrder(
+        uint8 _platform,
+        address _platformAddress,
+        uint8 _parameter,
+        uint32 destinationChainId,
+        uint32 _salt,
+        address _solver
+    ) public payable {
+        bytes32 orderId = generateKey(_platform, _platformAddress, _parameter, destinationChainId, _salt);
+
         // Ensure the order ID is valid
         if (orders[orderId].tipAmount == 0) {
             revert InvalidOrderId();
         }
 
         OrderDetails memory order = orders[orderId];
+
+        if (
+            !IFactory(factoryContract).checkCondition(
+                _platform, _platformAddress, owner, _parameter, order.conditionValue
+            )
+        ) {
+            revert ConditionEvaluationFailed();
+        }
+
+        // Execute the order
 
         IERC20(order.tipToken).transfer(_solver, order.tipAmount);
 

@@ -140,8 +140,6 @@ contract ConditionEvaulator {
 
         uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
 
-        // Comparing Values
-
         // Greater than asset Price
         if (_parameter == 0) {
             return conditionValue > assetPrice;
@@ -178,8 +176,6 @@ contract ConditionEvaulator {
         uint256 collateralBalance = IERC20(aToken).balanceOf(_borrower);
 
         uint256 collateralBalanceInBaseCurrency = (collateralBalance * assetPrice) / assetUnit;
-
-        // Comparing Values
 
         // Greater than asset Price
         if (_parameter == 0) {
