@@ -74,7 +74,7 @@ contract ConditionEvaulator {
         uint256 priceValue = uint256(price);
         uint256 priceDecimals = 10 ** priceFeed.decimals();
 
-        uint256 PriceWithTwoDecimals = (priceValue * 100)/ priceDecimals;
+        uint256 PriceWithTwoDecimals = (priceValue * 100) / priceDecimals;
 
         // Greater than Value
         if (parameter == 0) {

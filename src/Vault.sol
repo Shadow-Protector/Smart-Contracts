@@ -47,10 +47,11 @@ contract Vault {
 
     function createOrder(
         uint8 _platform,
-        address _conditionAddress,
+        address _platformAddress,
         uint8 _parameter,
-        uint256 conditionValue,
         uint32 destinationChainId,
+        uint32 _salt,
+        uint256 conditionValue,
         address tipToken,
         uint256 tipAmount
     ) public OnlyOwner {
@@ -63,7 +64,7 @@ contract Vault {
             revert TipAmountIsZero();
         }
 
-        bytes32 orderId = generateKey(_platform, _conditionAddress, _parameter);
+        bytes32 orderId = generateKey(_platform, _platformAddress, _parameter, destinationChainId, _salt);
 
         if (orders[orderId].tipAmount == 0) {
             revert InvalidOrderId();
@@ -98,6 +99,17 @@ contract Vault {
         delete orders[orderId];
     }
 
+    function executeOrder(bytes32 orderId, address _solver) public payable {
+        // Ensure the order ID is valid
+        if (orders[orderId].tipAmount == 0) {
+            revert InvalidOrderId();
+        }
+
+        OrderDetails memory order = orders[orderId];
+
+        IERC20(order.tipToken).transfer(_solver, order.tipAmount);
+    }
+
     function withdrawNativeToken(uint256 _amount) external OnlyOwner {
         payable(owner).transfer(_amount);
     }
@@ -110,8 +122,14 @@ contract Vault {
         return chainIdToAddress[chainId];
     }
 
-    function generateKey(uint8 platform, address conditionAddress, uint8 parameter) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(platform, conditionAddress, parameter));
+    function generateKey(
+        uint8 platform,
+        address conditionAddress,
+        uint8 parameter,
+        uint32 destinationChainId,
+        uint32 salt
+    ) public pure returns (bytes32) {
+        return keccak256(abi.encodePacked(platform, conditionAddress, parameter, destinationChainId, salt));
     }
 
     function addressToBytes32(address _addr) internal pure returns (bytes32) {
