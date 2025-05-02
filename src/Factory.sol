@@ -7,6 +7,7 @@ contract VaultFactory {
     // State Storage Variables
     address private immutable owner;
     address public conditionEvaluator;
+    uint256 public platformFee;
 
     // Mappings
     mapping(address => address) private vaults;
@@ -14,7 +15,23 @@ contract VaultFactory {
     // Events
     event VaultCreated(address indexed vaultAddress, address indexed owner);
 
+    event OrderCreated(
+        uint8 _platform,
+        address _platformAddress,
+        uint8 _parameter,
+        uint32 destinationChainId,
+        uint32 _salt,
+        uint256 conditionValue,
+        address vault
+    );
+
+    event OrderCancelled(address indexed vaultAddress, bytes32 indexed orderId);
+
+    event OrderExecuted(address indexed vaultAddress, bytes32 indexed orderId);
+
+    event UpdatedConditionEvaluator(address indexed newConditionEvaluator, address oldConditionEvaluator);
     // Errors
+
     error NotOwner(address sender, address owner);
 
     constructor(address _conditionEvaluator) {
@@ -30,6 +47,8 @@ contract VaultFactory {
         _;
     }
 
+    // Platform Fee in gas token
+
     function emitOrderCreation(
         uint8 _platform,
         address _platformAddress,
@@ -39,11 +58,35 @@ contract VaultFactory {
         address _owner
     ) external {}
 
-    function createOrder() external {}
+    function createOrder(
+        uint8 _platform,
+        address _platformAddress,
+        uint8 _parameter,
+        uint32 destinationChainId,
+        uint32 _salt,
+        uint256 conditionValue,
+        address _vaultOwner
+    ) external payable {
+        assert(msg.value >= platformFee);
 
-    function executeOrder() external {}
+        assert(msg.sender == vaults[_vaultOwner]);
 
-    function cancelOrder() external {}
+        emit OrderCreated(
+            _platform, _platformAddress, _parameter, destinationChainId, _salt, conditionValue, msg.sender
+        );
+    }
+
+    function emitExecuteOrder(address _vaultOwner, bytes32 OrderId) external {
+        assert(msg.sender == vaults[_vaultOwner]);
+
+        emit OrderExecuted(vaults[_vaultOwner], OrderId);
+    }
+
+    function emitCancelOrder(address _vaultOwner, bytes32 OrderId) external {
+        assert(msg.sender == vaults[_vaultOwner]);
+
+        emit OrderCancelled(vaults[_vaultOwner], OrderId);
+    }
 
     function checkCondition(
         uint8 _platform,
@@ -58,10 +101,13 @@ contract VaultFactory {
     }
 
     function updateConditionEvaluator(address _newConditionEvaluator) external OnlyOwner {
+        emit UpdatedConditionEvaluator(_newConditionEvaluator, conditionEvaluator);
         conditionEvaluator = _newConditionEvaluator;
     }
 
-
+    function updatePlatformFee(uint256 _newPlatformFee) external OnlyOwner {
+        platformFee = _newPlatformFee;
+    }
 
     function addVault(address _vault) external {
         vaults[msg.sender] = _vault;
