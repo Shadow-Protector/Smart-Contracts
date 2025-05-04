@@ -31,6 +31,8 @@ contract VaultFactory {
 
     event AssetDeposited(address vaultAddress, bytes32 orderId);
 
+    event CancelDeposit(address vaultAddress, bytes32 orderId);
+
     event UpdatedConditionEvaluator(address indexed newConditionEvaluator, address oldConditionEvaluator);
     // Errors
 
@@ -94,6 +96,12 @@ contract VaultFactory {
         assert(msg.sender == vaults[_vaultOwner]);
 
         emit AssetDeposited(msg.sender, _orderId);
+    }
+
+    function emitCancelDeposit(address _vaultOwner, bytes32 _orderId) external {
+        assert(msg.sender == vaults[_vaultOwner]);
+
+        emit CancelDeposit(msg.sender, _orderId);
     }
 
     function checkCondition(

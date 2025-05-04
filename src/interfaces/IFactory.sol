@@ -18,6 +18,8 @@ interface IFactory {
 
     function emitDepositEvent(address _vaultOwner, bytes32 _orderId) external;
 
+    function emitCancelDeposit(address _vaultOwner, bytes32 _orderId) external;
+
     function checkCondition(
         uint8 _platform,
         address _platformAddress,

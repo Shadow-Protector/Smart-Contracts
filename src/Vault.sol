@@ -186,6 +186,9 @@ contract Vault {
 
         // Delete the order execution details from the mapping
         delete orderExecutionDetails[_orderId];
+
+        // Emit Event of asset Deposit cancellation to Factory Contract
+        IFactory(factoryContract).emitCancelDeposit(owner, _orderId);
     }
 
     function withdrawNativeToken(uint256 _amount) external OnlyOwner {
