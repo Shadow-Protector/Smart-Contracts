@@ -25,6 +25,7 @@ contract Vault {
     // State variables
     address private immutable owner;
     address private immutable factoryContract;
+    address private immutable hyperlaneContract;
     // Mappings
     mapping(uint32 => address) private chainIdToAddress;
     mapping(bytes32 => OrderDetails) private orders;
@@ -40,9 +41,10 @@ contract Vault {
 
     error ConditionEvaluationFailed();
 
-    constructor(address _owner, address _factoryContract) {
+    constructor(address _owner, address _factoryContract, address _hyperlaneContract) {
         owner = _owner;
         factoryContract = _factoryContract;
+        hyperlaneContract = _hyperlaneContract;
     }
 
     modifier OnlyOwner() {
@@ -103,14 +105,13 @@ contract Vault {
 
     function cancelOrder(bytes32 _orderId) public OnlyOwner {
         // Ensure the order ID is valid
-        
+
         OrderDetails memory order = orders[_orderId];
 
         if (order.tipAmount == 0) {
             revert InvalidOrderId(_orderId);
         }
 
-        
         // Transfer the tip amount back to the sender
         IERC20(order.tipToken).transfer(msg.sender, order.tipAmount);
 
@@ -119,21 +120,18 @@ contract Vault {
 
         // Broadcast the order cancellation to send funds back to the user
         broadcastOrderCancellation(_orderId, order.destinationChainId);
-        
+
         // Delete the order from the mapping
         delete orders[_orderId];
     }
 
     function broadcastOrderCancellation(bytes32 orderId, uint32 chainId) internal {
-
-        if(chainId == block.chainid){
+        if (chainId == block.chainid) {
             _cancelAssetDeposit(orderId);
-        }else{
+        } else {
             // TODO: Broadcast Canceel Asset Deposit to External Chain
         }
-
     }
-
 
     function executeOrder(
         uint8 _platform,
