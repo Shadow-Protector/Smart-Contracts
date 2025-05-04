@@ -2,8 +2,15 @@
 pragma solidity ^0.8.26;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
+import {IHyperlaneMailbox} from "./interfaces/IHyperlane.sol";
+import {StandardHookMetadata} from "./interfaces/HyperlaneHook.sol";
 
 import {IFactory} from "./interfaces/IFactory.sol";
+
+// Operation Codes
+// 0: Cancel Order
+// 1: Execute Order with Supply
+// 2: Execute Order with Repay
 
 struct OrderDetails {
     uint32 destinationChainId;
@@ -25,7 +32,7 @@ contract Vault {
     // State variables
     address private immutable owner;
     address private immutable factoryContract;
-    address private immutable hyperlaneContract;
+    address private immutable hyperlaneMailbox;
     // Mappings
     mapping(uint32 => address) private chainIdToAddress;
     mapping(bytes32 => OrderDetails) private orders;
@@ -41,10 +48,14 @@ contract Vault {
 
     error ConditionEvaluationFailed();
 
-    constructor(address _owner, address _factoryContract, address _hyperlaneContract) {
+    error SenderNotMailbox(address caller);
+
+    error InvalidSender(bytes32 sender);
+
+    constructor(address _owner, address _factoryContract, address _hyperlaneMailbox) {
         owner = _owner;
         factoryContract = _factoryContract;
-        hyperlaneContract = _hyperlaneContract;
+        hyperlaneMailbox = _hyperlaneMailbox;
     }
 
     modifier OnlyOwner() {
@@ -129,7 +140,8 @@ contract Vault {
         if (chainId == block.chainid) {
             _cancelAssetDeposit(orderId);
         } else {
-            // TODO: Broadcast Canceel Asset Deposit to External Chain
+            // Broadcast Canceel Asset Deposit to External Chain
+            sendMessageToDestinationChain(chainId, orderId, 0);
         }
     }
 
@@ -208,6 +220,47 @@ contract Vault {
 
         // Emit Event of asset Deposit cancellation to Factory Contract
         IFactory(factoryContract).emitCancelDeposit(owner, _orderId);
+    }
+
+    function sendMessageToDestinationChain(uint32 destinationChainId, bytes32 orderId, uint8 Operation) internal {
+        // Call Hyperlane to send the message to the destination chain
+        IHyperlaneMailbox mailBox = IHyperlaneMailbox(hyperlaneMailbox);
+        bytes32 recipientAddress = addressToBytes32(chainIdToAddress[destinationChainId]);
+
+        bytes memory HookMetadata = StandardHookMetadata.overrideGasLimit(500000);
+
+        bytes memory messageBody = abi.encode(orderId, Operation);
+
+        uint256 fee = mailBox.quoteDispatch(destinationChainId, recipientAddress, messageBody, HookMetadata);
+
+        mailBox.dispatch{value: fee}(destinationChainId, recipientAddress, messageBody, HookMetadata);
+    }
+
+    function handle(uint32 _origin, bytes32 _sender, bytes calldata _message) external payable {
+        // Ensure the function is called by Hyperlane
+        if (msg.sender != hyperlaneMailbox) {
+            revert SenderNotMailbox(msg.sender);
+        }
+
+        address originAddress = chainIdToAddress[_origin];
+
+        // Check if the message is from valid sender
+        if (_sender != addressToBytes32(originAddress)) {
+            revert InvalidSender(_sender);
+        }
+        // Decode the message to get the order ID
+        (bytes32 orderId, uint8 operation) = abi.decode(_message, (bytes32, uint8));
+
+        OrderExecutionDetails memory orderExecution = orderExecutionDetails[orderId];
+        if (orderExecution.amount == 0) {
+            revert InvalidOrderId(orderId);
+        }
+
+        if (operation == 0) {
+            // Cancel Order
+            _cancelAssetDeposit(orderId);
+        }
+        // TODO: Handle supply and repay operations
     }
 
     function withdrawNativeToken(uint256 _amount) external OnlyOwner {
