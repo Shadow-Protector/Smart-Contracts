@@ -13,6 +13,13 @@ struct OrderDetails {
     uint256 tipAmount;
 }
 
+struct OrderExecutionDetails {
+    address token;
+    uint256 amount;
+    uint8 assetType;
+    bool repay;
+}
+
 // User Vault
 contract Vault {
     // State variables
@@ -21,7 +28,7 @@ contract Vault {
     // Mappings
     mapping(uint32 => address) private chainIdToAddress;
     mapping(bytes32 => OrderDetails) private orders;
-
+    mapping(bytes32 => OrderExecutionDetails) private orderExecutionDetails;
     // Errors
 
     // Owner Check
@@ -29,7 +36,7 @@ contract Vault {
 
     error TipAmountIsZero();
     error ConditionValueIsZero();
-    error InvalidOrderId();
+    error InvalidOrderId(bytes32 orderId);
 
     error ConditionEvaluationFailed();
 
@@ -71,7 +78,7 @@ contract Vault {
         bytes32 orderId = generateKey(_platform, _platformAddress, _parameter, destinationChainId, _salt);
 
         if (orders[orderId].tipAmount == 0) {
-            revert InvalidOrderId();
+            revert InvalidOrderId(orderId);
         }
 
         // Create the order details
@@ -97,16 +104,18 @@ contract Vault {
     function cancelOrder(bytes32 orderId) public OnlyOwner {
         // Ensure the order ID is valid
         if (orders[orderId].tipAmount == 0) {
-            revert InvalidOrderId();
+            revert InvalidOrderId(orderId);
         }
         // Transfer the tip amount back to the sender
         IERC20(orders[orderId].tipToken).transfer(msg.sender, orders[orderId].tipAmount);
 
-        // Delete the order from the mapping
-        delete orders[orderId];
-
         // Emit Event order cancellation
         IFactory(factoryContract).emitCancelOrder(owner, orderId);
+
+        // TODO:Broadcast the order cancellation to send funds back to the user
+
+        // Delete the order from the mapping
+        delete orders[orderId];
     }
 
     function executeOrder(
@@ -121,7 +130,7 @@ contract Vault {
 
         // Ensure the order ID is valid
         if (orders[orderId].tipAmount == 0) {
-            revert InvalidOrderId();
+            revert InvalidOrderId(orderId);
         }
 
         OrderDetails memory order = orders[orderId];
@@ -134,12 +143,49 @@ contract Vault {
             revert ConditionEvaluationFailed();
         }
 
-        // Execute the order
+        // TODO:Execute the order
 
         IERC20(order.tipToken).transfer(_solver, order.tipAmount);
 
         // Emit Event order execution
         IFactory(factoryContract).emitExecuteOrder(owner, orderId);
+    }
+
+    function depositAsset(bytes32 _orderId, address _token, uint256 _tokenAmount, uint8 _assetType, bool _repay)
+        external
+        OnlyOwner
+    {
+        // Ensure the order ID is valid
+        if (orders[_orderId].tipAmount == 0) {
+            revert InvalidOrderId(_orderId);
+        }
+
+        if (orderExecutionDetails[_orderId].amount != 0) {
+            IERC20(orderExecutionDetails[_orderId].token).transfer(owner, orderExecutionDetails[_orderId].amount);
+        }
+
+        orderExecutionDetails[_orderId] =
+            OrderExecutionDetails({token: _token, amount: _tokenAmount, assetType: _assetType, repay: _repay});
+
+        // Transfer the token amount
+        IERC20(_token).transferFrom(owner, address(this), _tokenAmount);
+
+        // Emit Event of asset Deposit to Factory Contract
+        IFactory(factoryContract).emitDepositEvent(owner, _orderId);
+    }
+
+    function cancelAssetDeposit(bytes32 _orderId) external OnlyOwner {
+        // Ensure the order ID is valid
+        if (orderExecutionDetails[_orderId].amount == 0) {
+            revert InvalidOrderId(_orderId);
+        }
+
+        OrderExecutionDetails memory order = orderExecutionDetails[_orderId];
+        // Transfer the asset amount back to the sender
+        IERC20(order.token).transfer(msg.sender, order.amount);
+
+        // Delete the order execution details from the mapping
+        delete orderExecutionDetails[_orderId];
     }
 
     function withdrawNativeToken(uint256 _amount) external OnlyOwner {
