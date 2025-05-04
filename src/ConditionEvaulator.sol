@@ -15,7 +15,7 @@ import {IPriceOracleGetter} from "./interfaces/IAavePriceGetter.sol";
 //   -> Euler labs Parameters
 // -> (Vault or Token Addres) (type = address) (20 bytes )
 //   -> Chainlink (Token address for price feed) (Generic)
-//   -> Aave Pool Parameters (Pool Address or Vault (!TODO))
+//   -> Aave Pool Parameters (Reserve Token address)
 //   -> Morpho Vault (address) (Single Contract each chain)
 //   -> Euler Vault For Evaulation
 // -> (Parameter Categorization) (type = number )

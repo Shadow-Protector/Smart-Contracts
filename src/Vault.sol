@@ -101,22 +101,39 @@ contract Vault {
         );
     }
 
-    function cancelOrder(bytes32 orderId) public OnlyOwner {
+    function cancelOrder(bytes32 _orderId) public OnlyOwner {
         // Ensure the order ID is valid
-        if (orders[orderId].tipAmount == 0) {
-            revert InvalidOrderId(orderId);
+        
+        OrderDetails memory order = orders[_orderId];
+
+        if (order.tipAmount == 0) {
+            revert InvalidOrderId(_orderId);
         }
+
+        
         // Transfer the tip amount back to the sender
-        IERC20(orders[orderId].tipToken).transfer(msg.sender, orders[orderId].tipAmount);
+        IERC20(order.tipToken).transfer(msg.sender, order.tipAmount);
 
         // Emit Event order cancellation
-        IFactory(factoryContract).emitCancelOrder(owner, orderId);
+        IFactory(factoryContract).emitCancelOrder(owner, _orderId);
 
-        // TODO:Broadcast the order cancellation to send funds back to the user
-
+        // Broadcast the order cancellation to send funds back to the user
+        broadcastOrderCancellation(_orderId, order.destinationChainId);
+        
         // Delete the order from the mapping
-        delete orders[orderId];
+        delete orders[_orderId];
     }
+
+    function broadcastOrderCancellation(bytes32 orderId, uint32 chainId) internal {
+
+        if(chainId == block.chainid){
+            _cancelAssetDeposit(orderId);
+        }else{
+            // TODO: Broadcast Canceel Asset Deposit to External Chain
+        }
+
+    }
+
 
     function executeOrder(
         uint8 _platform,
@@ -175,6 +192,10 @@ contract Vault {
     }
 
     function cancelAssetDeposit(bytes32 _orderId) external OnlyOwner {
+        _cancelAssetDeposit(_orderId);
+    }
+
+    function _cancelAssetDeposit(bytes32 _orderId) internal {
         // Ensure the order ID is valid
         if (orderExecutionDetails[_orderId].amount == 0) {
             revert InvalidOrderId(_orderId);
