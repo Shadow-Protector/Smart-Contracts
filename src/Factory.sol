@@ -7,6 +7,7 @@ contract VaultFactory {
     // State Storage Variables
     address private immutable owner;
     address public conditionEvaluator;
+    address public handler;
     uint256 public platformFee;
 
     // Mappings
@@ -38,10 +39,12 @@ contract VaultFactory {
 
     error NotOwner(address sender, address owner);
 
-    constructor(address _conditionEvaluator) {
+    constructor(address _conditionEvaluator, address _handler, uint256 _platformFee) {
         // Initialize state variables if needed
         owner = msg.sender;
         conditionEvaluator = _conditionEvaluator;
+        handler = _handler;
+        platformFee = _platformFee;
     }
 
     modifier OnlyOwner() {
@@ -128,5 +131,9 @@ contract VaultFactory {
     function addVault(address _vault) external {
         vaults[msg.sender] = _vault;
         emit VaultCreated(_vault, msg.sender);
+    }
+
+    function getHandler() external view returns (address) {
+        return handler;
     }
 }

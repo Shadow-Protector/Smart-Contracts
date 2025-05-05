@@ -22,6 +22,7 @@ struct OrderDetails {
 
 struct OrderExecutionDetails {
     address token;
+    address convert;
     uint256 amount;
     uint8 assetType;
     bool repay;
@@ -90,7 +91,7 @@ contract Vault {
 
         bytes32 orderId = generateKey(_platform, _platformAddress, _parameter, destinationChainId, _salt);
 
-        if (orders[orderId].tipAmount == 0) {
+        if (orders[orderId].tipAmount != 0) {
             revert InvalidOrderId(orderId);
         }
 
@@ -178,10 +179,23 @@ contract Vault {
         IFactory(factoryContract).emitExecuteOrder(owner, orderId);
     }
 
-    function depositAsset(bytes32 _orderId, address _token, uint256 _tokenAmount, uint8 _assetType, bool _repay)
-        external
-        OnlyOwner
-    {
+    function _executeOrder(bytes32 orderId, uint32 chainId) internal {
+        if (chainId == block.chainid) {
+            // TODO: Order Execution
+        } else {
+            // Broadcast Execute Oder to External Chain
+            sendMessageToDestinationChain(chainId, orderId, 1);
+        }
+    }
+
+    function depositAsset(
+        bytes32 _orderId,
+        address _token,
+        address _convert,
+        uint256 _tokenAmount,
+        uint8 _assetType,
+        bool _repay
+    ) external payable OnlyOwner {
         // Ensure the order ID is valid
         if (orders[_orderId].tipAmount == 0) {
             revert InvalidOrderId(_orderId);
@@ -191,8 +205,13 @@ contract Vault {
             IERC20(orderExecutionDetails[_orderId].token).transfer(owner, orderExecutionDetails[_orderId].amount);
         }
 
-        orderExecutionDetails[_orderId] =
-            OrderExecutionDetails({token: _token, amount: _tokenAmount, assetType: _assetType, repay: _repay});
+        orderExecutionDetails[_orderId] = OrderExecutionDetails({
+            token: _token,
+            convert: _convert,
+            amount: _tokenAmount,
+            assetType: _assetType,
+            repay: _repay
+        });
 
         // Transfer the token amount
         IERC20(_token).transferFrom(owner, address(this), _tokenAmount);
@@ -261,6 +280,10 @@ contract Vault {
             _cancelAssetDeposit(orderId);
         }
         // TODO: Handle supply and repay operations
+    }
+
+    function rescueFunds(address _token, uint256 _amount) external OnlyOwner {
+        IERC20(_token).transfer(owner, _amount);
     }
 
     function withdrawNativeToken(uint256 _amount) external OnlyOwner {

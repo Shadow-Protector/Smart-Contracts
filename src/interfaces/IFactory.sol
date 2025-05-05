@@ -27,4 +27,6 @@ interface IFactory {
         uint8 _parameter,
         uint256 _conditionValue
     ) external view returns (bool);
+
+    function getHandler() external view returns (address);
 }
