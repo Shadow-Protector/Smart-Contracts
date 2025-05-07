@@ -53,4 +53,50 @@ contract VaultTest is Test {
 
         assert(token.balanceOf(address(vault)) == 10 * 10 ** 18);
     }
+
+    function test_bytesSize() public pure {
+        uint16 platform = 1;
+        address conditionAddress = address(123312); // 20 bytes
+        uint16 parameter = 2; // 2 bytes
+        uint32 destinationChainId = 8411; // 4 bytes
+        uint32 salt = 101;
+
+        bytes memory data = abi.encodePacked(platform, conditionAddress, parameter, destinationChainId, salt);
+        assert(data.length == 32);
+    }
+
+    function test_decoding() public view {
+        uint16 platform = 65500;
+        address conditionAddress = address(0xA01f6403d49857b58D3794C12E028c3681b24F98); // 20 bytes
+        uint16 parameter = 45500; // 2 bytes
+        uint32 destinationChainId = 84111; // 4 bytes
+        uint32 salt = 10100;
+
+        bytes32 orderId = vault.generateKey(platform, conditionAddress, parameter, destinationChainId, salt);
+
+        console.logBytes32(orderId);
+
+        (
+            uint16 check_platform,
+            address check_conditionAddress,
+            uint16 check_parameter,
+            uint32 check_destinationChainId,
+            uint32 check_salt
+        ) = vault.decodeKey(abi.encodePacked(orderId));
+
+        console.log("Plaform", platform, check_platform);
+        assert(platform == check_platform);
+
+        console.log("Condition Address", conditionAddress, check_conditionAddress);
+        assert(conditionAddress == check_conditionAddress);
+
+        console.log("Parameter", parameter, check_parameter);
+        assert(parameter == check_parameter);
+
+        console.log("ChainId", destinationChainId, check_destinationChainId);
+        assert(destinationChainId == check_destinationChainId);
+
+        console.log("Salt", salt, check_salt);
+        assert(salt == check_salt);
+    }
 }
