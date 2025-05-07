@@ -24,7 +24,7 @@ struct OrderExecutionDetails {
     address convert;
     uint256 amount;
     uint8 assetType;
-    uint8 platform;
+    uint16 platform;
     bool repay;
 }
 
@@ -51,7 +51,7 @@ contract Vault {
 
     error SenderNotMailbox(address caller);
 
-    error InvalidSender(bytes32 sender);
+    error InvalidCrossChainSender(bytes32 sender);
     error NotHandler(address handler, address sender);
 
     constructor(address _owner, address _factoryContract, address _hyperlaneMailbox) {
@@ -140,7 +140,13 @@ contract Vault {
         }
     }
 
-    function executeOrder(bytes32 _orderId, address _solver) public payable {
+    function executeOrder(bytes32 _orderId, address _solver) external payable {
+        address handler = IFactory(factoryContract).getHandler();
+
+        if (msg.sender != handler) {
+            revert NotHandler(handler, msg.sender);
+        }
+
         (uint16 platform, address platformAddress, uint16 parameter, uint32 destinationChainId,) =
             this.decodeKey(abi.encodePacked(_orderId));
 
@@ -158,7 +164,7 @@ contract Vault {
         }
 
         // TODO:Execute the order
-        _executeOrder(_orderId, destinationChainId);
+        _executeOrder(_orderId, destinationChainId, handler);
 
         IERC20(order.tipToken).transfer(_solver, order.tipAmount);
 
@@ -166,13 +172,11 @@ contract Vault {
         IFactory(factoryContract).emitExecuteOrder(owner, _orderId);
     }
 
-    function _executeOrder(bytes32 orderId, uint32 chainId) internal {
+    function _executeOrder(bytes32 orderId, uint32 chainId, address handler) internal {
         if (chainId == block.chainid) {
-            // TODO: Order Execution
-            address handler = IFactory(factoryContract).getHandler();
-            if (msg.sender != handler) {
-                revert NotHandler(handler, msg.sender);
-            }
+            // Order Execution would be handled by handler contract
+            OrderExecutionDetails memory order = orderExecutionDetails[orderId];
+            IERC20(order.token).approve(handler, order.amount);
         } else {
             // Broadcast Execute Oder to External Chain
             sendMessageToDestinationChain(chainId, orderId, 1);
@@ -184,7 +188,7 @@ contract Vault {
         address _token,
         address _convert,
         uint256 _tokenAmount,
-        uint8 _platform,
+        uint16 _platform,
         uint8 _assetType,
         bool _repay
     ) external payable OnlyOwner {
@@ -228,6 +232,7 @@ contract Vault {
         }
     }
 
+    // TODO: Update message parameters to adjust deposit vaults
     function sendMessageToDestinationChain(uint32 destinationChainId, bytes32 orderId, uint8 Operation) internal {
         // Call Hyperlane to send the message to the destination chain
         IHyperlaneMailbox mailBox = IHyperlaneMailbox(hyperlaneMailbox);
@@ -252,7 +257,7 @@ contract Vault {
 
         // Check if the message is from valid sender
         if (_sender != addressToBytes32(originAddress)) {
-            revert InvalidSender(_sender);
+            revert InvalidCrossChainSender(_sender);
         }
         // Decode the message to get the order ID
         (bytes32 orderId, uint8 operation) = abi.decode(_message, (bytes32, uint8));
@@ -320,6 +325,14 @@ contract Vault {
             // salt: uint32 at offset 28
             salt := shr(224, calldataload(add(orderId.offset, 28)))
         }
+    }
+
+    function getOrderExecutionDetails(bytes32 orderId)
+        external
+        view
+        returns (address _owner, OrderExecutionDetails memory order)
+    {
+        return (owner, orderExecutionDetails[orderId]);
     }
 
     function addressToBytes32(address _addr) internal pure returns (bytes32) {
