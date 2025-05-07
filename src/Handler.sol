@@ -10,6 +10,8 @@ import {IPriceOracleGetter} from "./interfaces/aave/IAavePriceGetter.sol";
 import {IOracle} from "./interfaces/morpho/IMorphoOracle.sol";
 import {IMorpho} from "./interfaces/morpho/IMorpho.sol";
 
+import {IRouter} from "./interfaces/aerodrome/IRouter.sol";
+
 import {IVault, OrderExecutionDetails} from "./interfaces/IVault.sol";
 
 // Condition parameters (32 bytes)
@@ -42,6 +44,9 @@ contract Handler {
 
     IMorpho public immutable morphoPool;
 
+    // Aerodrome Router
+    IRouter public immutable aerodromeRouter;
+
     address public immutable eulerPool;
 
     // Mappings
@@ -49,11 +54,17 @@ contract Handler {
     mapping(address => address) public eulerVaults;
     mapping(address => address) public eulerDepositVaults;
 
-    constructor(address _aavePool, address _aavePriceGetter, address _morphoPool) {
+    // Errors
+    error InvalidRoute();
+    error InvalidStartToken(address requiredToken, address startToken);
+    error InvalidEndToken(address requiredToken, address endToken);
+
+    constructor(address _aavePool, address _aavePriceGetter, address _morphoPool, address _aerodromeRouter) {
         owner = msg.sender;
         aavePool = IAavePool(_aavePool);
         aavePriceGetter = IPriceOracleGetter(_aavePriceGetter);
         morphoPool = IMorpho(_morphoPool);
+        aerodromeRouter = IRouter(_aerodromeRouter);
     }
 
     modifier onlyOwner() {
@@ -63,6 +74,10 @@ contract Handler {
 
     function addMorphoVault(address _vault, bytes32 _vaultId) external onlyOwner {
         morphoVaults[_vault] = _vaultId;
+    }
+
+    function rescueFunds(address _token, uint256 _amount) external onlyOwner {
+        IERC20(_token).transfer(owner, _amount);
     }
 
     function evaluateCondition(
@@ -237,7 +252,7 @@ contract Handler {
 
     function checkEulerCondition() public view returns (bool) {}
 
-    function executeOrder(address vault, bytes32 _orderId, address _solver, address[] calldata _route)
+    function executeOrder(address vault, bytes32 _orderId, address _solver, IRouter.Route[] calldata route)
         external
         payable
     {
@@ -250,19 +265,56 @@ contract Handler {
         // Execute the order
         IVault(vault).executeOrder{value: msg.value}(_orderId, _solver);
 
-        // transfer tokens
         if (destinationChainId == block.chainid) {
             address depositToken = _getDepsitToken(order.token, order.assetType);
 
+            // transfer tokens
             IERC20(depositToken).transferFrom(vault, address(this), order.amount);
+
+            // transform tokens
+            uint256 amount = handleTransformation(order.token, order.assetType, depositToken, order.amount);
+
+            // swap tokens
+            if (order.token != order.convert) {
+                if (route.length == 0) {
+                    revert InvalidRoute();
+                }
+
+                if (route[0].from != order.token) {
+                    revert InvalidStartToken(order.token, route[0].from);
+                }
+
+                if (route[route.length - 1].to != order.convert) {
+                    revert InvalidEndToken(order.convert, route[route.length - 1].to);
+                }
+
+                // Get First Pool for swap
+                address pool = aerodromeRouter.poolFor(route[0].from, route[0].to, route[0].stable, route[0].factory);
+
+                // Approve Call to Aerodrome Router
+                IERC20(order.token).approve(pool, amount);
+
+                // Swap Operation
+                aerodromeRouter.swapExactTokensForTokens(amount, 0, route, address(this), block.timestamp);
+            }
+
+            // deposit or repay
         }
-
-        // swap tokens
-
-        // deposit or repay
     }
 
-    function handleDeposit() external {}
+    function handleTransformation(address token, uint16 assetType, address depositToken, uint256 amount)
+        internal
+        returns (uint256)
+    {
+        if (assetType == 1) {
+            // Calling Aave Pool withdraw function
+            return aavePool.withdraw(token, amount, address(this));
+        }
+
+        return (amount);
+    }
+
+    function handleDeposit() internal {}
 
     function _getDepsitToken(address token, uint16 assetType) internal view returns (address) {
         if (assetType == 1) {
