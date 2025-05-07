@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-interface IConditionEvaultor {
+interface IHandler {
     function evaluateCondition(
         uint16 _platform,
         address _platformAddress,
