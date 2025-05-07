@@ -32,26 +32,25 @@ import {IMorpho} from "./interfaces/IMorpho.sol";
 //   -> Euler Values
 
 contract ConditionEvaulator {
-
-    address public immutable owner; 
+    address public immutable owner;
 
     address public immutable aavePool;
     address public immutable aavePriceGetter;
     address public immutable eulerPool;
     address public immutable morphoPool;
 
-    // Mappings 
-    mapping (address => bytes32) public morphoVaults; 
+    // Mappings
+    mapping(address => bytes32) public morphoVaults;
 
     constructor(address _aavePool, address _morphoPool) {
-        owner = msg.sender; 
+        owner = msg.sender;
         aavePool = _aavePool;
         morphoPool = _morphoPool;
     }
 
-    modifier onlyOwner(){
+    modifier onlyOwner() {
         require(msg.sender == owner);
-        _; 
+        _;
     }
 
     function addMorphoVault(address _vault, bytes32 _vaultId) external onlyOwner {
@@ -218,10 +217,11 @@ contract ConditionEvaulator {
         return false;
     }
 
-    function checkMorphoCondition(address _market, address _borrower, uint16 _parameter, uint256 conditionValue) public view returns (bool) {
-
-
-    }
+    function checkMorphoCondition(address _market, address _borrower, uint16 _parameter, uint256 conditionValue)
+        public
+        view
+        returns (bool)
+    {}
 
     function checkEulerCondition() public view returns (bool) {}
 }
