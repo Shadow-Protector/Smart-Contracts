@@ -17,9 +17,9 @@ contract VaultFactory {
     event VaultCreated(address indexed vaultAddress, address indexed owner);
 
     event OrderCreated(
-        uint8 _platform,
+        uint16 _platform,
         address _platformAddress,
-        uint8 _parameter,
+        uint16 _parameter,
         uint32 destinationChainId,
         uint32 _salt,
         uint256 conditionValue,
@@ -66,9 +66,9 @@ contract VaultFactory {
     ) external {}
 
     function emitOrderCreation(
-        uint8 _platform,
+        uint16 _platform,
         address _platformAddress,
-        uint8 _parameter,
+        uint16 _parameter,
         uint32 destinationChainId,
         uint32 _salt,
         uint256 conditionValue,

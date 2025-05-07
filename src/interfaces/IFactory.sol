@@ -3,9 +3,9 @@ pragma solidity ^0.8.26;
 
 interface IFactory {
     function emitOrderCreation(
-        uint8 _platform,
+        uint16 _platform,
         address _platformAddress,
-        uint8 _parameter,
+        uint16 _parameter,
         uint32 destinationChainId,
         uint32 _salt,
         uint256 conditionValue,
@@ -21,10 +21,10 @@ interface IFactory {
     function emitCancelDeposit(address _vaultOwner, bytes32 _orderId) external;
 
     function checkCondition(
-        uint8 _platform,
+        uint16 _platform,
         address _platformAddress,
         address _borrower,
-        uint8 _parameter,
+        uint16 _parameter,
         uint256 _conditionValue
     ) external view returns (bool);
 

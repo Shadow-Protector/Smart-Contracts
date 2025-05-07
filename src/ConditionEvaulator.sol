@@ -7,6 +7,8 @@ import {AggregatorV3Interface} from "foundry-chainlink-toolkit/src/interfaces/fe
 import {IAavePool} from "./interfaces/IAavePool.sol";
 import {IPriceOracleGetter} from "./interfaces/IAavePriceGetter.sol";
 
+import {IOracle} from "./interfaces/IMorphoOracle.sol";
+import {IMorpho} from "./interfaces/IMorpho.sol";
 // Condition parameters (32 bytes)
 // -> (platform type) (type = number)
 //   -> Chainlink for prices
@@ -30,21 +32,37 @@ import {IPriceOracleGetter} from "./interfaces/IAavePriceGetter.sol";
 //   -> Euler Values
 
 contract ConditionEvaulator {
+
+    address public immutable owner; 
+
     address public immutable aavePool;
     address public immutable aavePriceGetter;
-    address public immutable morphoPool;
     address public immutable eulerPool;
+    address public immutable morphoPool;
+
+    // Mappings 
+    mapping (address => bytes32) public morphoVaults; 
 
     constructor(address _aavePool, address _morphoPool) {
+        owner = msg.sender; 
         aavePool = _aavePool;
         morphoPool = _morphoPool;
     }
 
+    modifier onlyOwner(){
+        require(msg.sender == owner);
+        _; 
+    }
+
+    function addMorphoVault(address _vault, bytes32 _vaultId) external onlyOwner {
+        morphoVaults[_vault] = _vaultId;
+    }
+
     function evaluateCondition(
-        uint8 _platform,
+        uint16 _platform,
         address _platformAddress,
         address _borrower,
-        uint8 _parameter,
+        uint16 _parameter,
         uint256 _conditionValue
     ) public view returns (bool) {
         if (_platform == 0) {
@@ -56,7 +74,7 @@ contract ConditionEvaulator {
         } else if (_platform == 3) {
             return checkAaveCollateralCondition(_platformAddress, _borrower, _parameter, _conditionValue);
         } else if (_platform == 4) {
-            return checkMorphoCondition();
+            return checkMorphoCondition(_platformAddress, _borrower, _parameter, _conditionValue);
         } else if (_platform == 5) {
             return checkEulerCondition();
         } else {
@@ -64,7 +82,7 @@ contract ConditionEvaulator {
         }
     }
 
-    function checkChainlinkCondition(address _V3InterfaceAddress, uint8 parameter, uint256 conditionValue)
+    function checkChainlinkCondition(address _V3InterfaceAddress, uint16 parameter, uint256 conditionValue)
         public
         view
         returns (bool)
@@ -88,7 +106,7 @@ contract ConditionEvaulator {
         return false;
     }
 
-    function checkAavePortfioCondition(address _borrower, uint8 _parameter, uint256 conditionValue)
+    function checkAavePortfioCondition(address _borrower, uint16 _parameter, uint256 conditionValue)
         public
         view
         returns (bool)
@@ -126,7 +144,7 @@ contract ConditionEvaulator {
         return false;
     }
 
-    function checkAaveDebtCondition(address _asset, address _borrower, uint8 _parameter, uint256 conditionValue)
+    function checkAaveDebtCondition(address _asset, address _borrower, uint16 _parameter, uint256 conditionValue)
         public
         view
         returns (bool)
@@ -163,7 +181,7 @@ contract ConditionEvaulator {
         return false;
     }
 
-    function checkAaveCollateralCondition(address _asset, address _borrower, uint8 _parameter, uint256 conditionValue)
+    function checkAaveCollateralCondition(address _asset, address _borrower, uint16 _parameter, uint256 conditionValue)
         public
         view
         returns (bool)
@@ -200,7 +218,10 @@ contract ConditionEvaulator {
         return false;
     }
 
-    function checkMorphoCondition() public view returns (bool) {}
+    function checkMorphoCondition(address _market, address _borrower, uint16 _parameter, uint256 conditionValue) public view returns (bool) {
+
+
+    }
 
     function checkEulerCondition() public view returns (bool) {}
 }

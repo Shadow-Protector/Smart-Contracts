@@ -25,6 +25,7 @@ struct OrderExecutionDetails {
     address convert;
     uint256 amount;
     uint8 assetType;
+    uint8 platform; 
     bool repay;
 }
 
@@ -52,6 +53,8 @@ contract Vault {
     error SenderNotMailbox(address caller);
 
     error InvalidSender(bytes32 sender);
+    error NotHandler(address handler, address sender);
+
 
     constructor(address _owner, address _factoryContract, address _hyperlaneMailbox) {
         owner = _owner;
@@ -147,41 +150,50 @@ contract Vault {
     }
 
     function executeOrder(
-        uint8 _platform,
-        address _platformAddress,
-        uint8 _parameter,
-        uint32 destinationChainId,
-        uint32 _salt,
+        bytes32 _orderId, 
         address _solver
     ) public payable {
-        bytes32 orderId = generateKey(_platform, _platformAddress, _parameter, destinationChainId, _salt);
+
+        (
+            uint16 platform,
+            address platformAddress,
+            uint16 parameter,
+            uint32 destinationChainId,
+        ) = this.decodeKey(abi.encodePacked(_orderId));
 
         // Ensure the order ID is valid
-        if (orders[orderId].tipAmount == 0) {
-            revert InvalidOrderId(orderId);
+        if (orders[_orderId].tipAmount == 0) {
+            revert InvalidOrderId(_orderId);
         }
 
-        OrderDetails memory order = orders[orderId];
+        OrderDetails memory order = orders[_orderId];
 
         if (
             !IFactory(factoryContract).checkCondition(
-                _platform, _platformAddress, owner, _parameter, order.conditionValue
+                platform, platformAddress, owner, parameter, order.conditionValue
             )
         ) {
             revert ConditionEvaluationFailed();
         }
 
         // TODO:Execute the order
+        _executeOrder(_orderId, order.destinationChainId);
 
         IERC20(order.tipToken).transfer(_solver, order.tipAmount);
 
         // Emit Event order execution
-        IFactory(factoryContract).emitExecuteOrder(owner, orderId);
+        IFactory(factoryContract).emitExecuteOrder(owner, _orderId);
     }
 
     function _executeOrder(bytes32 orderId, uint32 chainId) internal {
         if (chainId == block.chainid) {
             // TODO: Order Execution
+            address handler = IFactory(factoryContract).getHandler(); 
+            if(msg.sender != handler){
+                revert NotHandler(handler, msg.sender);
+            }
+
+
         } else {
             // Broadcast Execute Oder to External Chain
             sendMessageToDestinationChain(chainId, orderId, 1);
@@ -193,14 +205,11 @@ contract Vault {
         address _token,
         address _convert,
         uint256 _tokenAmount,
+        uint8 _platform,
         uint8 _assetType,
         bool _repay
     ) external payable OnlyOwner {
-        // Ensure the order ID is valid
-        if (orders[_orderId].tipAmount == 0) {
-            revert InvalidOrderId(_orderId);
-        }
-
+        
         if (orderExecutionDetails[_orderId].amount != 0) {
             IERC20(orderExecutionDetails[_orderId].token).transfer(owner, orderExecutionDetails[_orderId].amount);
         }
@@ -209,6 +218,7 @@ contract Vault {
             token: _token,
             convert: _convert,
             amount: _tokenAmount,
+            platform: _platform,
             assetType: _assetType,
             repay: _repay
         });
@@ -298,14 +308,48 @@ contract Vault {
         return chainIdToAddress[chainId];
     }
 
+
     function generateKey(
-        uint8 platform,
+        uint16 platform, // 2 bytes
+        address conditionAddress, // 20 bytes 
+        uint16 parameter, // 2 bytes 
+        uint32 destinationChainId, // 4 bytes
+        uint32 salt // 4 bytes
+    ) public pure returns (bytes32) {
+        bytes memory data = abi.encodePacked(platform, conditionAddress, parameter, destinationChainId, salt);        
+        assert(data.length == 32);
+        return bytes32(data);
+
+    }
+
+    function decodeKey(bytes calldata orderId) public pure returns (
+        uint16 platform,
         address conditionAddress,
-        uint8 parameter,
+        uint16 parameter,
         uint32 destinationChainId,
         uint32 salt
-    ) public pure returns (bytes32) {
-        return keccak256(abi.encodePacked(platform, conditionAddress, parameter, destinationChainId, salt));
+    ) {
+
+        require(orderId.length == 32, "Expected exactly 32 bytes");
+
+        assembly {
+        // platform: uint16 at offset 0 (2 bytes)
+        platform := shr(240, calldataload(orderId.offset))  // shift right by 30 bytes
+
+        // conditionAddress: address at offset 2 (20 bytes)
+        conditionAddress := shr(96, calldataload(add(orderId.offset, 2)))  // shift right by 12 bytes
+
+        // parameter: uint16 at offset 22
+        parameter := shr(240, calldataload(add(orderId.offset, 22)))
+
+        // destinationChainId: uint32 at offset 24
+        destinationChainId := shr(224, calldataload(add(orderId.offset, 24)))  // shift right by 28 bytes
+
+        // salt: uint32 at offset 28
+        salt := shr(224, calldataload(add(orderId.offset, 28)))
+    }
+
+        
     }
 
     function addressToBytes32(address _addr) internal pure returns (bytes32) {
