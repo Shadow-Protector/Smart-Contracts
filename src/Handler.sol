@@ -295,10 +295,14 @@ contract Handler {
                 IERC20(order.token).approve(pool, amount);
 
                 // Swap Operation
-                aerodromeRouter.swapExactTokensForTokens(amount, 0, route, address(this), block.timestamp);
+                uint256[] memory output = aerodromeRouter.swapExactTokensForTokens(amount, 0, route, address(this), block.timestamp);
+
+                amount = output[output.length -1];
             }
 
-            // deposit or repay
+            // Deposit or Repay
+            handleDeposit(order.convert, amount, _owner, order.platform, order.repay);
+    
         }
     }
 
@@ -314,7 +318,7 @@ contract Handler {
         return (amount);
     }
 
-    function handleDeposit() internal {}
+    function handleDeposit(address token, uint256 amount, address _owner, uint16 _platform, bool repay) internal {}
 
     function _getDepsitToken(address token, uint16 assetType) internal view returns (address) {
         if (assetType == 1) {
