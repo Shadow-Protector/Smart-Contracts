@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
 
-import {ConditionEvaulator} from "../src/ConditionEvaulator.sol";
+import {Handler} from "../src/Handler.sol";
 import {VaultFactory} from "../src/Factory.sol";
 import {Vault} from "../src/Vault.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
@@ -17,17 +17,17 @@ contract TokenContract is ERC20 {
 }
 
 contract VaultTest is Test {
-    ConditionEvaulator public conditionEvaulator;
+    Handler public handler;
     VaultFactory public vaultFactory;
     Vault public vault;
     TokenContract public token;
 
     function setUp() public {
         // Deploy the ConditionEvaulator contract
-        conditionEvaulator = new ConditionEvaulator(address(0), address(0));
+        handler = new Handler(address(0), address(0), address(0));
 
         // Deploy the VaultFactory contract
-        vaultFactory = new VaultFactory(address(conditionEvaulator), address(0), 0);
+        vaultFactory = new VaultFactory(address(handler), 0);
 
         // Deploy the Vault contract
         vault = new Vault(address(123), address(vaultFactory), address(0));
