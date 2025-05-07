@@ -72,9 +72,9 @@ contract Vault {
     }
 
     function createOrder(
-        uint8 _platform,
+        uint16 _platform,
         address _platformAddress,
-        uint8 _parameter,
+        uint16 _parameter,
         uint32 destinationChainId,
         uint32 _salt,
         uint256 conditionValue,
@@ -94,14 +94,10 @@ contract Vault {
 
         if (orders[orderId].tipAmount != 0) {
             revert InvalidOrderId(orderId);
-        }
-
-        // Create the order details
-        OrderDetails memory newOrder =
-            OrderDetails({conditionValue: conditionValue, tipToken: tipToken, tipAmount: tipAmount});
+        }            
 
         // Store the order in the mapping
-        orders[orderId] = newOrder;
+        orders[orderId] = OrderDetails({conditionValue: conditionValue, tipToken: tipToken, tipAmount: tipAmount});
 
         // Transfer the tip amount from the sender to the contract
         IERC20(tipToken).transferFrom(msg.sender, address(this), tipAmount);
@@ -114,7 +110,6 @@ contract Vault {
 
     function cancelOrder(bytes32 _orderId) public OnlyOwner {
         // Ensure the order ID is valid
-
         OrderDetails memory order = orders[_orderId];
 
         if (order.tipAmount == 0) {
@@ -219,19 +214,19 @@ contract Vault {
 
     function _cancelAssetDeposit(bytes32 _orderId) internal {
         // Ensure the order ID is valid
-        if (orderExecutionDetails[_orderId].amount == 0) {
-            revert InvalidOrderId(_orderId);
+        OrderExecutionDetails memory order = orderExecutionDetails[_orderId];
+
+        if(order.amount != 0) {
+            // Transfer the asset amount back to the sender
+            IERC20(order.token).transfer(owner, order.amount);
+
+            // Delete the order execution details from the mapping
+            delete orderExecutionDetails[_orderId];
+
+            // Emit Event of asset Deposit cancellation to Factory Contract
+            IFactory(factoryContract).emitCancelDeposit(owner, _orderId);
         }
 
-        OrderExecutionDetails memory order = orderExecutionDetails[_orderId];
-        // Transfer the asset amount back to the sender
-        IERC20(order.token).transfer(msg.sender, order.amount);
-
-        // Delete the order execution details from the mapping
-        delete orderExecutionDetails[_orderId];
-
-        // Emit Event of asset Deposit cancellation to Factory Contract
-        IFactory(factoryContract).emitCancelDeposit(owner, _orderId);
     }
 
     function sendMessageToDestinationChain(uint32 destinationChainId, bytes32 orderId, uint8 Operation) internal {
