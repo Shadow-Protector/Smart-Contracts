@@ -5,7 +5,7 @@ struct OrderExecutionDetails {
     address token;
     address convert;
     uint256 amount;
-    uint8 assetType;
+    uint16 assetType;
     uint16 platform;
     bool repay;
 }

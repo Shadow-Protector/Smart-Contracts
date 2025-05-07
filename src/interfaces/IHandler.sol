@@ -9,4 +9,6 @@ interface IHandler {
         uint16 _parameter,
         uint256 _conditionValue
     ) external view returns (bool);
+
+    function getDepositToken(address token, uint16 assetType) external view returns (address);
 }
