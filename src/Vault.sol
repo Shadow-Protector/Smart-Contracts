@@ -94,7 +94,7 @@ contract Vault {
 
         if (orders[orderId].tipAmount != 0) {
             revert InvalidOrderId(orderId);
-        }            
+        }
 
         // Store the order in the mapping
         orders[orderId] = OrderDetails({conditionValue: conditionValue, tipToken: tipToken, tipAmount: tipAmount});
@@ -216,7 +216,7 @@ contract Vault {
         // Ensure the order ID is valid
         OrderExecutionDetails memory order = orderExecutionDetails[_orderId];
 
-        if(order.amount != 0) {
+        if (order.amount != 0) {
             // Transfer the asset amount back to the sender
             IERC20(order.token).transfer(owner, order.amount);
 
@@ -226,7 +226,6 @@ contract Vault {
             // Emit Event of asset Deposit cancellation to Factory Contract
             IFactory(factoryContract).emitCancelDeposit(owner, _orderId);
         }
-
     }
 
     function sendMessageToDestinationChain(uint32 destinationChainId, bytes32 orderId, uint8 Operation) internal {
