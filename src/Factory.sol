@@ -1,12 +1,11 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-import {IConditionEvaultor} from "./interfaces/IConditionEvaultor.sol";
+import {IHandler} from "./interfaces/IHandler.sol";
 
 contract VaultFactory {
     // State Storage Variables
     address private immutable owner;
-    address public conditionEvaluator;
     address public handler;
     uint256 public platformFee;
 
@@ -34,15 +33,14 @@ contract VaultFactory {
 
     event CancelDeposit(address vaultAddress, bytes32 orderId);
 
-    event UpdatedConditionEvaluator(address indexed newConditionEvaluator, address oldConditionEvaluator);
+    event UpdatedHandler(address indexed newConditionEvaluator, address oldConditionEvaluator);
     // Errors
 
     error NotOwner(address sender, address owner);
 
-    constructor(address _conditionEvaluator, address _handler, uint256 _platformFee) {
+    constructor(address _handler, uint256 _platformFee) {
         // Initialize state variables if needed
         owner = msg.sender;
-        conditionEvaluator = _conditionEvaluator;
         handler = _handler;
         platformFee = _platformFee;
     }
@@ -114,14 +112,16 @@ contract VaultFactory {
         uint8 _parameter,
         uint256 _conditionValue
     ) external view returns (bool) {
-        return IConditionEvaultor(conditionEvaluator).evaluateCondition(
-            _platform, _platformAddress, _borrower, _parameter, _conditionValue
-        );
+        return IHandler(handler).evaluateCondition(_platform, _platformAddress, _borrower, _parameter, _conditionValue);
     }
 
-    function updateConditionEvaluator(address _newConditionEvaluator) external OnlyOwner {
-        emit UpdatedConditionEvaluator(_newConditionEvaluator, conditionEvaluator);
-        conditionEvaluator = _newConditionEvaluator;
+    function getDepositToken(address token, uint16 assetType) external view returns (address) {
+        return IHandler(handler).getDepositToken(token, assetType);
+    }
+
+    function updateHandler(address _newHandler) external OnlyOwner {
+        emit UpdatedHandler(handler, _newHandler);
+        handler = _newHandler;
     }
 
     function updatePlatformFee(uint256 _newPlatformFee) external OnlyOwner {

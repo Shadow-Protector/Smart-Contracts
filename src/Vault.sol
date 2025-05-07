@@ -2,8 +2,8 @@
 pragma solidity ^0.8.26;
 
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
-import {IHyperlaneMailbox} from "./interfaces/IHyperlane.sol";
-import {StandardHookMetadata} from "./interfaces/HyperlaneHook.sol";
+import {IHyperlaneMailbox} from "./interfaces/hyperlane/IHyperlane.sol";
+import {StandardHookMetadata} from "./interfaces/hyperlane/HyperlaneHook.sol";
 
 import {IFactory} from "./interfaces/IFactory.sol";
 
@@ -23,7 +23,8 @@ struct OrderExecutionDetails {
     address token;
     address convert;
     uint256 amount;
-    uint8 assetType;
+    uint16 assetType;
+    // Deposit details
     uint16 platform;
     bool repay;
 }
@@ -176,7 +177,11 @@ contract Vault {
         if (chainId == block.chainid) {
             // Order Execution would be handled by handler contract
             OrderExecutionDetails memory order = orderExecutionDetails[orderId];
-            IERC20(order.token).approve(handler, order.amount);
+
+            // Get the deposit token address
+            address depositToken = IFactory(factoryContract).getDepositToken(order.token, order.assetType);
+
+            IERC20(depositToken).approve(handler, order.amount);
         } else {
             // Broadcast Execute Oder to External Chain
             sendMessageToDestinationChain(chainId, orderId, 1);
@@ -205,8 +210,10 @@ contract Vault {
             repay: _repay
         });
 
+        address depositToken = IFactory(factoryContract).getDepositToken(_token, _assetType);
+
         // Transfer the token amount
-        IERC20(_token).transferFrom(owner, address(this), _tokenAmount);
+        IERC20(depositToken).transferFrom(owner, address(this), _tokenAmount);
 
         // Emit Event of asset Deposit to Factory Contract
         IFactory(factoryContract).emitDepositEvent(owner, _orderId);
@@ -221,8 +228,10 @@ contract Vault {
         OrderExecutionDetails memory order = orderExecutionDetails[_orderId];
 
         if (order.amount != 0) {
+            // Get the deposit token address
+            address depositToken = IFactory(factoryContract).getDepositToken(order.token, order.assetType);
             // Transfer the asset amount back to the sender
-            IERC20(order.token).transfer(owner, order.amount);
+            IERC20(depositToken).transfer(owner, order.amount);
 
             // Delete the order execution details from the mapping
             delete orderExecutionDetails[_orderId];
