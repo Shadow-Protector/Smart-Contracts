@@ -13,7 +13,6 @@ import {IFactory} from "./interfaces/IFactory.sol";
 // 2: Execute Order with Repay
 
 struct OrderDetails {
-    uint32 destinationChainId;
     uint256 conditionValue;
     // Order Tip Details
     address tipToken;
@@ -98,12 +97,8 @@ contract Vault {
         }
 
         // Create the order details
-        OrderDetails memory newOrder = OrderDetails({
-            destinationChainId: destinationChainId,
-            conditionValue: conditionValue,
-            tipToken: tipToken,
-            tipAmount: tipAmount
-        });
+        OrderDetails memory newOrder =
+            OrderDetails({conditionValue: conditionValue, tipToken: tipToken, tipAmount: tipAmount});
 
         // Store the order in the mapping
         orders[orderId] = newOrder;
@@ -126,6 +121,8 @@ contract Vault {
             revert InvalidOrderId(_orderId);
         }
 
+        (,,, uint32 destinationChainId,) = this.decodeKey(abi.encodePacked(_orderId));
+
         // Transfer the tip amount back to the sender
         IERC20(order.tipToken).transfer(msg.sender, order.tipAmount);
 
@@ -133,7 +130,7 @@ contract Vault {
         IFactory(factoryContract).emitCancelOrder(owner, _orderId);
 
         // Broadcast the order cancellation to send funds back to the user
-        broadcastOrderCancellation(_orderId, order.destinationChainId);
+        broadcastOrderCancellation(_orderId, destinationChainId);
 
         // Delete the order from the mapping
         delete orders[_orderId];
@@ -166,7 +163,7 @@ contract Vault {
         }
 
         // TODO:Execute the order
-        _executeOrder(_orderId, order.destinationChainId);
+        _executeOrder(_orderId, destinationChainId);
 
         IERC20(order.tipToken).transfer(_solver, order.tipAmount);
 
