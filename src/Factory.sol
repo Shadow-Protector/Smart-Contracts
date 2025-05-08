@@ -5,7 +5,7 @@ import {IHandler} from "./interfaces/IHandler.sol";
 
 contract VaultFactory {
     // State Storage Variables
-    address private immutable owner;
+    address private owner;
     address public handler;
     uint256 public platformFee;
 
@@ -14,6 +14,8 @@ contract VaultFactory {
 
     // Events
     event VaultCreated(address indexed vaultAddress, address indexed owner);
+
+    event UpdatedOwner(address oldOwner, address newOwner);
 
     event OrderCreated(
         uint16 _platform,
@@ -50,6 +52,11 @@ contract VaultFactory {
             revert NotOwner(msg.sender, owner);
         }
         _;
+    }
+
+    function updateOwner(address _newOwner) external OnlyOwner {
+        emit UpdatedOwner(owner, _newOwner);
+        owner = _newOwner;
     }
 
     // Platform Fee in gas token

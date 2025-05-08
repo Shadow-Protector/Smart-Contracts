@@ -37,7 +37,7 @@ import {IVault, OrderExecutionDetails} from "./interfaces/IVault.sol";
 //   -> Euler Values
 
 contract Handler {
-    address public immutable owner;
+    address public owner;
 
     IAavePool public immutable aavePool;
     IPriceOracleGetter public immutable aavePriceGetter;
@@ -53,6 +53,9 @@ contract Handler {
     mapping(uint16 => bytes32) public morphoVaults;
     mapping(address => address) public eulerVaults;
     mapping(address => address) public eulerDepositVaults;
+
+    // Events
+    event UpdatedOwner(address oldOwner, address newOwner);
 
     // Errors
     error InvalidRoute();
@@ -70,6 +73,11 @@ contract Handler {
     modifier onlyOwner() {
         require(msg.sender == owner);
         _;
+    }
+
+    function updateOwner(address _newOwner) external onlyOwner {
+        emit UpdatedOwner(owner, _newOwner);
+        owner = _newOwner;
     }
 
     function addMorphoVault(uint16 _vault, bytes32 _vaultId) external onlyOwner {
@@ -319,8 +327,12 @@ contract Handler {
     }
 
     function handleDeposit(address token, uint256 amount, address _owner, uint16 _platform, bool repay) internal {
-        // Aave
+        // Self Deposit
         if (_platform == 0) {
+            IERC20(token).transfer(_owner, amount);
+        }
+        // Aave
+        if (_platform == 1) {
             if (repay) {
                 // Repay Function
                 address variableDebtToken = aavePool.getReserveVariableDebtToken(token);
@@ -341,6 +353,16 @@ contract Handler {
                 IERC20(token).approve(address(aavePool), amount);
                 aavePool.supply(token, amount, _owner, 0);
             }
+        }
+
+        // Deposit into Morpho vaults
+        if (_platform >= 2 && _platform <= 1002) {
+            // TODO Deposits into vaults
+        }
+
+        //
+        if (_platform >= 1003 && _platform <= 2003) {
+            // TODO Supply collateral or repay loans in morpho
         }
     }
 
