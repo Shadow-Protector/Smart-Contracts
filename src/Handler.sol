@@ -50,7 +50,7 @@ contract Handler {
     address public immutable eulerPool;
 
     // Mappings
-    mapping(address => bytes32) public morphoVaults;
+    mapping(uint16 => bytes32) public morphoVaults;
     mapping(address => address) public eulerVaults;
     mapping(address => address) public eulerDepositVaults;
 
@@ -72,7 +72,7 @@ contract Handler {
         _;
     }
 
-    function addMorphoVault(address _vault, bytes32 _vaultId) external onlyOwner {
+    function addMorphoVault(uint16 _vault, bytes32 _vaultId) external onlyOwner {
         morphoVaults[_vault] = _vaultId;
     }
 
@@ -295,14 +295,14 @@ contract Handler {
                 IERC20(order.token).approve(pool, amount);
 
                 // Swap Operation
-                uint256[] memory output = aerodromeRouter.swapExactTokensForTokens(amount, 0, route, address(this), block.timestamp);
+                uint256[] memory output =
+                    aerodromeRouter.swapExactTokensForTokens(amount, 0, route, address(this), block.timestamp);
 
-                amount = output[output.length -1];
+                amount = output[output.length - 1];
             }
 
             // Deposit or Repay
             handleDeposit(order.convert, amount, _owner, order.platform, order.repay);
-    
         }
     }
 
@@ -318,7 +318,31 @@ contract Handler {
         return (amount);
     }
 
-    function handleDeposit(address token, uint256 amount, address _owner, uint16 _platform, bool repay) internal {}
+    function handleDeposit(address token, uint256 amount, address _owner, uint16 _platform, bool repay) internal {
+        // Aave
+        if (_platform == 0) {
+            if (repay) {
+                // Repay Function
+                address variableDebtToken = aavePool.getReserveVariableDebtToken(token);
+
+                uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_owner);
+
+                uint256 repayValue = amount;
+                if (amount > debtBalance) {
+                    repayValue = debtBalance;
+                    IERC20(token).transfer(_owner, amount - debtBalance);
+                }
+
+                IERC20(token).approve(address(aavePool), repayValue);
+
+                aavePool.repay(token, repayValue, 2, _owner);
+            } else {
+                // Supply Function
+                IERC20(token).approve(address(aavePool), amount);
+                aavePool.supply(token, amount, _owner, 0);
+            }
+        }
+    }
 
     function _getDepsitToken(address token, uint16 assetType) internal view returns (address) {
         if (assetType == 1) {
