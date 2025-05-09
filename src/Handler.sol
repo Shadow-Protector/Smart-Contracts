@@ -50,8 +50,8 @@ contract Handler {
     address public immutable eulerPool;
 
     // Mappings
-    mapping(uint16 => bytes32) public morphoVaults;
-    mapping(address => address) public eulerVaults;
+    mapping(address => bytes32) public morphoVaults;
+    mapping(address => address) public morphoDeposits;
     mapping(address => address) public eulerDepositVaults;
 
     // Events
@@ -80,7 +80,11 @@ contract Handler {
         owner = _newOwner;
     }
 
-    function addMorphoVault(uint16 _vault, bytes32 _vaultId) external onlyOwner {
+    function addMorphoDeposit(address _deposit, address _vault) external onlyOwner {
+        morphoDeposits[_deposit] = _vault;
+    }
+
+    function addMorphoVault(address _vault, bytes32 _vaultId) external onlyOwner {
         morphoVaults[_vault] = _vaultId;
     }
 
@@ -102,7 +106,7 @@ contract Handler {
         } else if (_platform == 2) {
             return checkAaveCollateralCondition(_platformAddress, _borrower, _parameter, _conditionValue);
         } else if (_platform == 3) {
-            return checkAaveCollateralCondition(_platformAddress, _borrower, _parameter, _conditionValue);
+            return checkAaveDebtCondition(_platformAddress, _borrower, _parameter, _conditionValue);
         } else if (_platform == 4) {
             return checkMorphoCondition(_platformAddress, _borrower, _parameter, _conditionValue);
         } else if (_platform == 5) {
@@ -280,7 +284,7 @@ contract Handler {
             IERC20(depositToken).transferFrom(vault, address(this), order.amount);
 
             // transform tokens
-            uint256 amount = handleTransformation(order.token, order.assetType, depositToken, order.amount);
+            uint256 amount = handleTransformation(order.token, order.assetType, order.amount);
 
             // swap tokens
             if (order.token != order.convert) {
@@ -314,10 +318,7 @@ contract Handler {
         }
     }
 
-    function handleTransformation(address token, uint16 assetType, address depositToken, uint256 amount)
-        internal
-        returns (uint256)
-    {
+    function handleTransformation(address token, uint16 assetType, uint256 amount) internal returns (uint256) {
         if (assetType == 1) {
             // Calling Aave Pool withdraw function
             return aavePool.withdraw(token, amount, address(this));
@@ -370,6 +371,7 @@ contract Handler {
         if (assetType == 1) {
             return aavePool.getReserveAToken(token);
         }
+
         return token;
     }
 
