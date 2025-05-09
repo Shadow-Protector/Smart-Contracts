@@ -8,7 +8,9 @@ import {IAavePool} from "./interfaces/aave/IAavePool.sol";
 import {IPriceOracleGetter} from "./interfaces/aave/IAavePriceGetter.sol";
 
 import {IOracle} from "./interfaces/morpho/IMorphoOracle.sol";
-import {IMorpho} from "./interfaces/morpho/IMorpho.sol";
+import {IMorpho, MarketParams, Id, Position, Market} from "../src/interfaces/morpho/IMorpho.sol";
+import {MathLib, WAD} from "./lib/MathLib.sol";
+import {SharesMathLib} from "./lib/SharesMathLib.sol";
 
 import {IRouter} from "./interfaces/aerodrome/IRouter.sol";
 
@@ -37,6 +39,9 @@ import {IVault, OrderExecutionDetails} from "./interfaces/IVault.sol";
 //   -> Euler Values
 
 contract Handler {
+    using MathLib for uint256;
+    using SharesMathLib for uint256;
+
     address public owner;
 
     IAavePool public immutable aavePool;
@@ -50,8 +55,8 @@ contract Handler {
     address public immutable eulerPool;
 
     // Mappings
-    mapping(address => bytes32) public morphoVaults;
-    mapping(address => address) public morphoDeposits;
+    mapping(address => bytes32) public morphoMarket;
+    mapping(address => address) public morphoVaults;
     mapping(address => address) public eulerDepositVaults;
 
     // Events
@@ -80,11 +85,11 @@ contract Handler {
         owner = _newOwner;
     }
 
-    function addMorphoDeposit(address _deposit, address _vault) external onlyOwner {
-        morphoDeposits[_deposit] = _vault;
+    function addMorphoMarket(address _market, bytes32 _id) external onlyOwner {
+        morphoMarket[_market] = _id;
     }
 
-    function addMorphoVault(address _vault, bytes32 _vaultId) external onlyOwner {
+    function addMorphoVault(address _vault, address _vaultId) external onlyOwner {
         morphoVaults[_vault] = _vaultId;
     }
 
@@ -260,7 +265,32 @@ contract Handler {
         public
         view
         returns (bool)
-    {}
+    {
+        bytes32 marketId = morphoMarket[_market];
+        if (marketId == bytes32(0)) {
+            return false;
+        }
+
+        MarketParams memory market = morphoPool.idToMarketParams(Id.wrap(marketId));
+
+        IOracle oracle = IOracle(market.oracle);
+
+        uint256 price = oracle.price();
+
+        Position memory position = morphoPool.position(Id.wrap(marketId), _borrower);
+
+        Market memory marketData = morphoPool.market(Id.wrap(marketId));
+
+        // Greater than asset Price
+        if (_parameter == 0) {
+            return conditionValue > price;
+        } // Less than or equal to asset Price
+        else if (_parameter == 1) {
+            return conditionValue <= price;
+        }
+
+        return false;
+    }
 
     function checkEulerCondition() public view returns (bool) {}
 
