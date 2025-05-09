@@ -417,7 +417,24 @@ contract Handler {
 
         //
         if (_platform >= 1003 && _platform <= 2003) {
-            // TODO Supply collateral or repay loans in morpho Markets
+            // Supply collateral or repay loans in morpho Markets
+            bytes32 marketId = morphoMarket[convertToDepositAddress(_platform)];
+
+            if (marketId == bytes32(0)) {
+                _platform = 0;
+            } else {
+                // TODO Supply or Repay
+
+                MarketParams memory market = morphoPool.idToMarketParams(Id.wrap(marketId));
+
+                if (repay && token == market.loanToken) {} else if (repay == false && token == market.collateralToken) {
+                    IERC20(token).approve(address(morphoPool), amount);
+
+                    morphoPool.supplyCollateral(market, amount, _owner, "");
+                } else {
+                    _platform = 0;
+                }
+            }
         }
 
         // Self Deposit
@@ -433,7 +450,6 @@ contract Handler {
 
         // Withdraw from Morpho Vaults
         if (assetType >= 2 && assetType <= 1002) {
-            // TODO Deposits into vaults
             return morphoVaults[convertToDepositAddress(assetType)];
         }
 
