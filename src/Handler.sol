@@ -9,6 +9,8 @@ import {IPriceOracleGetter} from "./interfaces/aave/IAavePriceGetter.sol";
 
 import {IOracle} from "./interfaces/morpho/IMorphoOracle.sol";
 import {IMorpho, MarketParams, Id, Position, Market} from "../src/interfaces/morpho/IMorpho.sol";
+import {IMetaMorpho} from "./interfaces/morpho/IMetaMorpho.sol";
+
 import {MathLib, WAD} from "./lib/MathLib.sol";
 import {SharesMathLib} from "./lib/SharesMathLib.sol";
 
@@ -281,12 +283,20 @@ contract Handler {
 
         Market memory marketData = morphoPool.market(Id.wrap(marketId));
 
+        uint256 borrowed =
+            uint256(position.borrowShares).toAssetsUp(marketData.totalBorrowAssets, marketData.totalBorrowShares);
+
         // Greater than asset Price
         if (_parameter == 0) {
             return conditionValue > price;
         } // Less than or equal to asset Price
         else if (_parameter == 1) {
             return conditionValue <= price;
+        } else if (_parameter == 2) {
+            return conditionValue > borrowed;
+        } // Less than or equal to debt balance
+        else if (_parameter == 3) {
+            return conditionValue <= borrowed;
         }
 
         return false;
@@ -354,14 +364,16 @@ contract Handler {
             return aavePool.withdraw(token, amount, address(this));
         }
 
+        // Withdraw from Morpho Vaults
+        if (assetType >= 2 && assetType <= 1002) {
+            address vaultAddress = morphoVaults[convertToDepositAddress(assetType)];
+            return IMetaMorpho(vaultAddress).redeem(amount, address(this), address(this));
+        }
+
         return (amount);
     }
 
     function handleDeposit(address token, uint256 amount, address _owner, uint16 _platform, bool repay) internal {
-        // Self Deposit
-        if (_platform == 0) {
-            IERC20(token).transfer(_owner, amount);
-        }
         // Aave
         if (_platform == 1) {
             if (repay) {
@@ -388,18 +400,41 @@ contract Handler {
 
         // Deposit into Morpho vaults
         if (_platform >= 2 && _platform <= 1002) {
-            // TODO Deposits into vaults
+            address vaultAddress = morphoVaults[convertToDepositAddress(_platform)];
+            if (vaultAddress == address(0)) {
+                _platform = 0;
+            } else {
+                address confirmAsset = IMetaMorpho(vaultAddress).asset();
+
+                if (token != confirmAsset) {
+                    _platform = 0;
+                } else {
+                    IERC20(token).approve(vaultAddress, amount);
+                    IMetaMorpho(vaultAddress).deposit(amount, _owner);
+                }
+            }
         }
 
         //
         if (_platform >= 1003 && _platform <= 2003) {
-            // TODO Supply collateral or repay loans in morpho
+            // TODO Supply collateral or repay loans in morpho Markets
+        }
+
+        // Self Deposit
+        if (_platform == 0) {
+            IERC20(token).transfer(_owner, amount);
         }
     }
 
     function _getDepsitToken(address token, uint16 assetType) internal view returns (address) {
         if (assetType == 1) {
             return aavePool.getReserveAToken(token);
+        }
+
+        // Withdraw from Morpho Vaults
+        if (assetType >= 2 && assetType <= 1002) {
+            // TODO Deposits into vaults
+            return morphoVaults[convertToDepositAddress(assetType)];
         }
 
         return token;
