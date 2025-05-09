@@ -423,13 +423,33 @@ contract Handler {
             if (marketId == bytes32(0)) {
                 _platform = 0;
             } else {
-                // TODO Supply or Repay
-
                 MarketParams memory market = morphoPool.idToMarketParams(Id.wrap(marketId));
 
-                if (repay && token == market.loanToken) {} else if (repay == false && token == market.collateralToken) {
-                    IERC20(token).approve(address(morphoPool), amount);
+                // TODO: Repay
+                if (repay && token == market.loanToken) {
+                    Position memory position = morphoPool.position(Id.wrap(marketId), _owner);
 
+                    Market memory marketData = morphoPool.market(Id.wrap(marketId));
+
+                    uint256 borrowed = uint256(position.borrowShares).toAssetsUp(
+                        marketData.totalBorrowAssets, marketData.totalBorrowShares
+                    );
+
+                    uint256 repayValue = amount;
+                    if (amount > borrowed) {
+                        repayValue = borrowed;
+                        IERC20(token).transfer(_owner, amount - borrowed);
+                    }
+
+                    morphoPool.repay(
+                        market,
+                        repayValue, // Amount of assets to repay
+                        0, // Use 0 for shares when specifying assets
+                        address(owner), // Repay on behalf of this contract
+                        "" // No callback data needed
+                    );
+                } else if (!repay && token == market.collateralToken) {
+                    IERC20(token).approve(address(morphoPool), amount);
                     morphoPool.supplyCollateral(market, amount, _owner, "");
                 } else {
                     _platform = 0;
