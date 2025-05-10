@@ -191,10 +191,10 @@ contract Vault {
     function depositAsset(
         bytes32 _orderId,
         address _token,
+        uint16 _assetType,
         address _convert,
         uint256 _tokenAmount,
         uint16 _platform,
-        uint8 _assetType,
         bool _repay
     ) external payable OnlyOwner {
         if (orderExecutionDetails[_orderId].amount != 0) {
