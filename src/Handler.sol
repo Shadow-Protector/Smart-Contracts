@@ -283,6 +283,10 @@ contract Handler {
 
         Market memory marketData = morphoPool.market(Id.wrap(marketId));
 
+        uint8 decimals = 34 + IERC20(market.loanToken).decimals() - IERC20(market.collateralToken).decimals();
+
+        price = price / 10 ** decimals;
+
         uint256 borrowed =
             uint256(position.borrowShares).toAssetsUp(marketData.totalBorrowAssets, marketData.totalBorrowShares);
 
