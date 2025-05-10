@@ -113,10 +113,10 @@ contract VaultFactory {
     }
 
     function checkCondition(
-        uint8 _platform,
+        uint16 _platform,
         address _platformAddress,
         address _borrower,
-        uint8 _parameter,
+        uint16 _parameter,
         uint256 _conditionValue
     ) external view returns (bool) {
         return IHandler(handler).evaluateCondition(_platform, _platformAddress, _borrower, _parameter, _conditionValue);
