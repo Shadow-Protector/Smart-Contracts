@@ -64,6 +64,9 @@ contract Handler {
     // Events
     event UpdatedOwner(address oldOwner, address newOwner);
 
+    event MorphoMarketAdded(address market, bytes32 id);
+    event MorphoVaultAdded(address vault, address vaultId);
+
     // Errors
     error InvalidRoute();
     error InvalidStartToken(address requiredToken, address startToken);
@@ -89,10 +92,12 @@ contract Handler {
 
     function addMorphoMarket(address _market, bytes32 _id) external onlyOwner {
         morphoMarket[_market] = _id;
+        emit MorphoMarketAdded(_market, _id);
     }
 
     function addMorphoVault(address _vault, address _vaultId) external onlyOwner {
         morphoVaults[_vault] = _vaultId;
+        emit MorphoVaultAdded(_vault, _vaultId);
     }
 
     function rescueFunds(address _token, uint256 _amount) external onlyOwner {
