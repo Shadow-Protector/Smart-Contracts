@@ -9,7 +9,6 @@ import {VaultDeployer} from "../src/Deployer.sol";
 import {Vault} from "../src/Vault.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 
-
 contract TokenContract is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
 
@@ -24,7 +23,7 @@ contract VaultTest is Test {
     VaultDeployer public deployer;
     TokenContract public token;
 
-    address payable public vault; 
+    address payable public vault;
 
     function setUp() public {
         // Deploy the ConditionEvaulator contract
@@ -36,9 +35,9 @@ contract VaultTest is Test {
         // Deploy the Vault contract
         deployer = new VaultDeployer(address(vaultFactory), address(0));
 
-        // Configuration 
+        // Configuration
         vaultFactory.updateVaultDeployer(address(deployer));
-        
+
         vm.prank(address(123));
         vault = payable(deployer.deployVault());
 

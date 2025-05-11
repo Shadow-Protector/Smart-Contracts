@@ -60,7 +60,7 @@ contract VaultFactory {
         owner = _newOwner;
     }
 
-    function updateVaultDeployer(address _newVaultDeployer) external OnlyOwner{
+    function updateVaultDeployer(address _newVaultDeployer) external OnlyOwner {
         vaultDeployer = _newVaultDeployer;
     }
 
@@ -139,10 +139,8 @@ contract VaultFactory {
         return IHandler(handler).getDepositToken(token, assetType);
     }
 
-    
     function addVault(address _vault, address _owner) external {
-
-        require(msg.sender == vaultDeployer); 
+        require(msg.sender == vaultDeployer);
         vaults[_owner] = _vault;
         emit VaultCreated(_vault, _owner);
     }

@@ -4,17 +4,15 @@ pragma solidity ^0.8.26;
 import {Vault} from "./Vault.sol";
 import {IFactory} from "./interfaces/IFactory.sol";
 
-
 contract VaultDeployer {
-
-    address private owner; 
-    address public factory; 
+    address private owner;
+    address public factory;
     address public hyperlaneMailbox;
 
     error NotOwner(address sender, address owner);
 
-    constructor(address _factory, address _hyperlaneMailbox){
-        owner = msg.sender; 
+    constructor(address _factory, address _hyperlaneMailbox) {
+        owner = msg.sender;
         factory = _factory;
         hyperlaneMailbox = _hyperlaneMailbox;
     }
@@ -38,14 +36,11 @@ contract VaultDeployer {
         hyperlaneMailbox = _newHyperlaneMailbox;
     }
 
-    function deployVault() external returns (address){
-
+    function deployVault() external returns (address) {
         Vault vault = new Vault(msg.sender, factory, hyperlaneMailbox);
 
         IFactory(factory).addVault(address(vault), msg.sender);
 
         return address(vault);
-
     }
-
 }
