@@ -46,6 +46,7 @@ contract Handler {
 
     address public owner;
     address public factory;
+    address public usdc;
     IAavePool public immutable aavePool;
     IPriceOracleGetter public immutable aavePriceGetter;
 
@@ -93,6 +94,10 @@ contract Handler {
 
     function updateFactory(address _factory) external onlyOwner {
         factory = _factory;
+    }
+
+    function updateUsdc(address _usdc) external onlyOwner {
+        usdc = _usdc;
     }
 
     function addCrossChainHandler(uint32 _chainId, address _handler) external onlyOwner {
@@ -494,6 +499,10 @@ contract Handler {
 
         // transform tokens
         uint256 amount = handleTransformation(order.token, order.assetType, order.amount);
+
+        // TODO: Cross Chain transfer
+
+        IERC20(depositToken).transfer(_owner, amount);
     }
 
     function _getDepsitToken(address token, uint16 assetType) internal view returns (address) {
