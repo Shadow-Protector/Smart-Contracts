@@ -6,6 +6,7 @@ import {IHandler} from "./interfaces/IHandler.sol";
 contract VaultFactory {
     // State Storage Variables
     address private owner;
+    address public vaultDeployer;
     address public handler;
     uint256 public platformFee;
 
@@ -59,6 +60,18 @@ contract VaultFactory {
         owner = _newOwner;
     }
 
+    function updateVaultDeployer(address _newVaultDeployer) external OnlyOwner{
+        vaultDeployer = _newVaultDeployer;
+    }
+
+    function updateHandler(address _newHandler) external OnlyOwner {
+        emit UpdatedHandler(handler, _newHandler);
+        handler = _newHandler;
+    }
+
+    function updatePlatformFee(uint256 _newPlatformFee) external OnlyOwner {
+        platformFee = _newPlatformFee;
+    }
     // Platform Fee in gas token
 
     function emitOrderCreation(
@@ -126,18 +139,12 @@ contract VaultFactory {
         return IHandler(handler).getDepositToken(token, assetType);
     }
 
-    function updateHandler(address _newHandler) external OnlyOwner {
-        emit UpdatedHandler(handler, _newHandler);
-        handler = _newHandler;
-    }
+    
+    function addVault(address _vault, address _owner) external {
 
-    function updatePlatformFee(uint256 _newPlatformFee) external OnlyOwner {
-        platformFee = _newPlatformFee;
-    }
-
-    function addVault(address _vault) external {
-        vaults[msg.sender] = _vault;
-        emit VaultCreated(_vault, msg.sender);
+        require(msg.sender == vaultDeployer); 
+        vaults[_owner] = _vault;
+        emit VaultCreated(_vault, _owner);
     }
 
     function getHandler() external view returns (address) {

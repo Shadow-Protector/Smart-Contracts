@@ -433,8 +433,7 @@ contract Handler {
                 _platform = 0;
             } else {
                 MarketParams memory market = morphoPool.idToMarketParams(Id.wrap(marketId));
-
-                // TODO: Repay
+                // Repay s
                 if (repay && token == market.loanToken) {
                     Position memory position = morphoPool.position(Id.wrap(marketId), _owner);
 

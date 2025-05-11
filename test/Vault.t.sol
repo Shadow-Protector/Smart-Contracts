@@ -5,8 +5,10 @@ import {Test, console} from "forge-std/Test.sol";
 
 import {Handler} from "../src/Handler.sol";
 import {VaultFactory} from "../src/Factory.sol";
+import {VaultDeployer} from "../src/Deployer.sol";
 import {Vault} from "../src/Vault.sol";
 import {ERC20} from "openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
+
 
 contract TokenContract is ERC20 {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {}
@@ -19,8 +21,10 @@ contract TokenContract is ERC20 {
 contract VaultTest is Test {
     Handler public handler;
     VaultFactory public vaultFactory;
-    Vault public vault;
+    VaultDeployer public deployer;
     TokenContract public token;
+
+    address payable public vault; 
 
     function setUp() public {
         // Deploy the ConditionEvaulator contract
@@ -30,7 +34,13 @@ contract VaultTest is Test {
         vaultFactory = new VaultFactory(address(handler), 0);
 
         // Deploy the Vault contract
-        vault = new Vault(address(123), address(vaultFactory), address(0));
+        deployer = new VaultDeployer(address(vaultFactory), address(0));
+
+        // Configuration 
+        vaultFactory.updateVaultDeployer(address(deployer));
+        
+        vm.prank(address(123));
+        vault = payable(deployer.deployVault());
 
         // Deploy the ERC20 token contract
         token = new TokenContract("TestToken", "TTK");
@@ -42,14 +52,11 @@ contract VaultTest is Test {
 
         assert(token.balanceOf(address(123)) == 1000 * 10 ** 18);
 
-        // Add Vault to the factory registry
-        vaultFactory.addVault(address(vault));
-
         // Approve the vault to spend tokens
         token.approve(address(vault), 100 * 10 ** 18); // Approve 100 tokens
 
         // Create Limit Order s
-        vault.createOrder(0, address(0), 0, uint32(block.chainid), 0, 1, address(token), 10 * 10 ** 18);
+        Vault(vault).createOrder(0, address(0), 0, uint32(block.chainid), 0, 1, address(token), 10 * 10 ** 18);
 
         assert(token.balanceOf(address(vault)) == 10 * 10 ** 18);
     }
@@ -72,7 +79,7 @@ contract VaultTest is Test {
         uint32 destinationChainId = 84111; // 4 bytes
         uint32 salt = 10100;
 
-        bytes32 orderId = vault.generateKey(platform, conditionAddress, parameter, destinationChainId, salt);
+        bytes32 orderId = Vault(vault).generateKey(platform, conditionAddress, parameter, destinationChainId, salt);
 
         console.logBytes32(orderId);
 
@@ -82,7 +89,7 @@ contract VaultTest is Test {
             uint16 check_parameter,
             uint32 check_destinationChainId,
             uint32 check_salt
-        ) = vault.decodeKey(abi.encodePacked(orderId));
+        ) = Vault(vault).decodeKey(abi.encodePacked(orderId));
 
         console.log("Plaform", platform, check_platform);
         assert(platform == check_platform);
