@@ -280,9 +280,18 @@ contract Vault {
             // Cancel Order
             _cancelAssetDeposit(orderId);
         }
-        // Call Handler to create a cow swap limit order
-
-        // TODO: Handle supply and repay operations
+        // Call Handler to create a cow swap order and bridge the asset
+        if (operation == 1 || operation == 2) {
+            // Get the handler
+            address handler = IFactory(factoryContract).getHandler();
+            // Get the deposit token address
+            address depositToken =
+                IFactory(factoryContract).getDepositToken(orderExecution.token, orderExecution.assetType);
+            // approve the handler
+            IERC20(depositToken).approve(handler, orderExecution.amount);
+            // Call the factory for cross-chain order execution
+            IFactory(factoryContract).executeCrossChainOrder(owner, orderId, _origin);
+        }
     }
 
     function rescueFunds(address _token, uint256 _amount) external OnlyOwner {

@@ -14,6 +14,8 @@ interface IFactory {
 
     function addVault(address _vault, address _owner) external;
 
+    function executeCrossChainOrder(address vaultOwner, bytes32 orderId, uint32 destinationChainId) external;
+
     function emitExecuteOrder(address _vaultOwner, bytes32 OrderId) external;
 
     function emitCancelOrder(address _vaultOwner, bytes32 OrderId) external;

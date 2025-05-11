@@ -69,10 +69,16 @@ contract VaultFactory {
         handler = _newHandler;
     }
 
+    // Platform Fee in gas token
     function updatePlatformFee(uint256 _newPlatformFee) external OnlyOwner {
         platformFee = _newPlatformFee;
     }
-    // Platform Fee in gas token
+
+    function addVault(address _vault, address _owner) external {
+        require(msg.sender == vaultDeployer);
+        vaults[_owner] = _vault;
+        emit VaultCreated(_vault, _owner);
+    }
 
     function emitOrderCreation(
         uint8 _platform,
@@ -135,14 +141,14 @@ contract VaultFactory {
         return IHandler(handler).evaluateCondition(_platform, _platformAddress, _borrower, _parameter, _conditionValue);
     }
 
-    function getDepositToken(address token, uint16 assetType) external view returns (address) {
-        return IHandler(handler).getDepositToken(token, assetType);
+    function executeCrossChainOrder(address vaultOwner, bytes32 orderId, uint32 destinationChainId) external {
+        require(msg.sender == vaults[vaultOwner]);
+        // Call the handler to execute the cross-chain order
+        IHandler(handler).executeCrossChainOrder(msg.sender, orderId, destinationChainId);
     }
 
-    function addVault(address _vault, address _owner) external {
-        require(msg.sender == vaultDeployer);
-        vaults[_owner] = _vault;
-        emit VaultCreated(_vault, _owner);
+    function getDepositToken(address token, uint16 assetType) external view returns (address) {
+        return IHandler(handler).getDepositToken(token, assetType);
     }
 
     function getHandler() external view returns (address) {

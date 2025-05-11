@@ -11,4 +11,6 @@ interface IHandler {
     ) external view returns (bool);
 
     function getDepositToken(address token, uint16 assetType) external view returns (address);
+
+    function executeCrossChainOrder(address vault, bytes32 orderId, uint32 destinationChainId) external;
 }

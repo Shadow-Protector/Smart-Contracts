@@ -45,7 +45,7 @@ contract Handler {
     using SharesMathLib for uint256;
 
     address public owner;
-
+    address public factory;
     IAavePool public immutable aavePool;
     IPriceOracleGetter public immutable aavePriceGetter;
 
@@ -60,6 +60,7 @@ contract Handler {
     mapping(address => bytes32) public morphoMarket;
     mapping(address => address) public morphoVaults;
     mapping(address => address) public eulerDepositVaults;
+    mapping(uint32 => address) public crossChainHandlers;
 
     // Events
     event UpdatedOwner(address oldOwner, address newOwner);
@@ -88,6 +89,14 @@ contract Handler {
     function updateOwner(address _newOwner) external onlyOwner {
         emit UpdatedOwner(owner, _newOwner);
         owner = _newOwner;
+    }
+
+    function updateFactory(address _factory) external onlyOwner {
+        factory = _factory;
+    }
+
+    function addCrossChainHandler(uint32 _chainId, address _handler) external onlyOwner {
+        crossChainHandlers[_chainId] = _handler;
     }
 
     function addMorphoMarket(address _market, bytes32 _id) external onlyOwner {
@@ -469,6 +478,22 @@ contract Handler {
         if (_platform == 0) {
             IERC20(token).transfer(_owner, amount);
         }
+    }
+
+    function executeCrossChainOrder(address vault, bytes32 _orderId, uint32 destinationChainId) external {
+        require(msg.sender == factory, "Not Factory");
+
+        // get Order details
+        (address _owner, OrderExecutionDetails memory order) = IVault(vault).getOrderExecutionDetails(_orderId);
+
+        // Get Deposit Token
+        address depositToken = _getDepsitToken(order.token, order.assetType);
+
+        // transfer tokens
+        IERC20(depositToken).transferFrom(vault, address(this), order.amount);
+
+        // transform tokens
+        uint256 amount = handleTransformation(order.token, order.assetType, order.amount);
     }
 
     function _getDepsitToken(address token, uint16 assetType) internal view returns (address) {
