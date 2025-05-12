@@ -206,8 +206,6 @@ contract DeployScript is Script {
 
         // // assert(factory.checkCondition(0, CHAINLINK_PRICE_FEED, msg.sender, 0, 251164) == true);
 
-        
-
         // handler.executeOrder(address(vault), orderId, 0xA01f6403d49857b58D3794C12E028c3681b24F98, routes);
     }
 }
