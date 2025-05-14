@@ -33,7 +33,7 @@ import {IVault, OrderExecutionDetails} from "./interfaces/IVault.sol";
 //   -> Chainlink (Lower or Greater )
 //   -> Aave (Collateral Value, other params )
 //   -> Morpho Params
-//   -> Euler Valut parameters
+//   -> Euler Vault parameters
 // -> Condition Value (type number) (uint256) (Stored inside the struct)
 //   -> Asset Price Value in 18 decimals
 //   -> Aave Values
@@ -156,15 +156,15 @@ contract Handler {
         uint256 priceValue = uint256(price);
         uint256 priceDecimals = 10 ** priceFeed.decimals();
 
-        uint256 PriceWithTwoDecimals = (priceValue * 100) / priceDecimals;
+        uint256 priceWithTwoDecimals = (priceValue * 100) / priceDecimals;
 
         // Greater than Value
         if (parameter == 0) {
-            return conditionValue > PriceWithTwoDecimals;
+            return priceWithTwoDecimals > conditionValue;
         }
         // Less than Value or equal to
         else if (parameter == 1) {
-            return conditionValue <= PriceWithTwoDecimals;
+            return priceWithTwoDecimals <= conditionValue;
         }
 
         return false;
@@ -181,28 +181,28 @@ contract Handler {
 
         // Check paramter is greater than totalCollateralBase
         if (_parameter == 0) {
-            return conditionValue > totalCollateralBase;
+            return totalCollateralBase > conditionValue;
         } // Check paramter is less or equal to totalCollateralBase
         else if (_parameter == 1) {
-            return conditionValue <= totalCollateralBase;
+            return totalCollateralBase <= conditionValue;
         } // Check paramter is greater than totalDebtBase
         else if (_parameter == 2) {
-            return conditionValue > totalDebtBase;
+            return totalDebtBase > conditionValue;
         } // Check paramter is less or equal to totalDebtBase
         else if (_parameter == 3) {
-            return conditionValue <= totalDebtBase;
+            return totalDebtBase <= conditionValue;
         } // Check paramter is greater than ltv
         else if (_parameter == 4) {
-            return conditionValue > ltv;
+            return ltv > conditionValue;
         } // Check paramter is less or equal to ltv
         else if (_parameter == 5) {
-            return conditionValue <= ltv;
-        } // Check paramter is greater than healthFactor
+            return ltv <= conditionValue;
+        } // Check parameter is greater than healthFactor
         else if (_parameter == 6) {
-            return conditionValue > healthFactor;
+            return healthFactor > conditionValue;
         } // Check paramter is less or equal to healthFactor
         else if (_parameter == 7) {
-            return conditionValue <= healthFactor;
+            return healthFactor <= conditionValue;
         }
 
         return false;
@@ -224,22 +224,22 @@ contract Handler {
 
         // Greater than asset Price
         if (_parameter == 0) {
-            return conditionValue > assetPrice;
+            return assetPrice > conditionValue;
         } // Less than or equal to asset Price
         else if (_parameter == 1) {
-            return conditionValue <= assetPrice;
+            return assetPrice <= conditionValue;
         } // Greater than debt balance
         else if (_parameter == 2) {
-            return conditionValue > debtBalance;
+            return debtBalance > conditionValue;
         } // Less than or equal to debt balance
         else if (_parameter == 3) {
-            return conditionValue <= debtBalance;
+            return debtBalance <= conditionValue;
         } // Greater than debt balance in base currency
         else if (_parameter == 4) {
-            return conditionValue > debtBalanceInBaseCurrency;
+            return debtBalanceInBaseCurrency > conditionValue;
         } // Less than or equal to debt balance in base currency
         else if (_parameter == 5) {
-            return conditionValue <= debtBalanceInBaseCurrency;
+            return debtBalanceInBaseCurrency <= conditionValue;
         }
 
         return false;
@@ -261,22 +261,22 @@ contract Handler {
 
         // Greater than asset Price
         if (_parameter == 0) {
-            return conditionValue > assetPrice;
+            return assetPrice > conditionValue;
         } // Less than or equal to asset Price
         else if (_parameter == 1) {
-            return conditionValue <= assetPrice;
+            return assetPrice <= conditionValue;
         } // Greater than debt balance
         else if (_parameter == 2) {
-            return conditionValue > collateralBalance;
+            return collateralBalance > conditionValue;
         } // Less than or equal to debt balance
         else if (_parameter == 3) {
-            return conditionValue <= collateralBalance;
+            return collateralBalance <= conditionValue;
         } // Greater than debt balance in base currency
         else if (_parameter == 4) {
-            return conditionValue > collateralBalanceInBaseCurrency;
+            return collateralBalanceInBaseCurrency > conditionValue;
         } // Less than or equal to debt balance in base currency
         else if (_parameter == 5) {
-            return conditionValue <= collateralBalanceInBaseCurrency;
+            return collateralBalanceInBaseCurrency <= conditionValue;
         }
 
         return false;
@@ -311,15 +311,15 @@ contract Handler {
 
         // Greater than asset Price
         if (_parameter == 0) {
-            return conditionValue > price;
+            return price > conditionValue;
         } // Less than or equal to asset Price
         else if (_parameter == 1) {
-            return conditionValue <= price;
+            return price <= conditionValue;
         } else if (_parameter == 2) {
-            return conditionValue > borrowed;
+            return borrowed > conditionValue;
         } // Less than or equal to debt balance
         else if (_parameter == 3) {
-            return conditionValue <= borrowed;
+            return borrowed <= conditionValue;
         }
 
         return false;
