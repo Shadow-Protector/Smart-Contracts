@@ -5,7 +5,7 @@ import {Script, console} from "forge-std/Script.sol";
 
 import {Handler} from "../src/Handler.sol";
 import {VaultFactory} from "../src/Factory.sol";
-import {Vault} from "../src/Vault.sol";
+import {VaultDeployer} from "../src/Deployer.sol";
 
 contract DeployScript is Script {
     function setUp() public {}
@@ -30,9 +30,9 @@ contract DeployScript is Script {
 
         console.log("Factory Deployed at:", address(factory));
 
-        Vault vault = new Vault(msg.sender, address(factory), address(0));
+        VaultDeployer deployer = new VaultDeployer(address(factory), address(0));
 
-        console.log("Vault Deployed at:", address(vault));
+        console.log("Vault deployer at:", address(deployer));
 
         vm.stopBroadcast();
     }
