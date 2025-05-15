@@ -24,7 +24,7 @@ contract DeployScript is Script {
         // Deploy the Handler contract
         Handler handler = new Handler(address(0), address(0), address(0), address(0));
 
-        console.log("Handeler Deployed at:", address(handler));
+        console.log("Handler Deployed at:", address(handler));
 
         VaultFactory factory = new VaultFactory(address(handler), 0);
 
@@ -33,6 +33,13 @@ contract DeployScript is Script {
         VaultDeployer deployer = new VaultDeployer(address(factory), address(0));
 
         console.log("Vault deployer at:", address(deployer));
+
+        // Configuration of contracts
+
+        handler.updateFactory(address(factory));
+        factory.updateVaultDeployer(address(deployer));
+
+        deployer.deployVault();
 
         vm.stopBroadcast();
     }
