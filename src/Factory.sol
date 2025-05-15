@@ -154,4 +154,8 @@ contract VaultFactory {
     function getHandler() external view returns (address) {
         return handler;
     }
+
+    function getVault(address _owner) external view returns (address) {
+        return vaults[_owner];
+    }
 }
