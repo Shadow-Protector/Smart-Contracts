@@ -135,8 +135,6 @@ contract Handler {
             return checkAaveDebtCondition(_platformAddress, _borrower, _parameter, _conditionValue);
         } else if (_platform == 4) {
             return checkMorphoCondition(_platformAddress, _borrower, _parameter, _conditionValue);
-        } else if (_platform == 5) {
-            return checkEulerCondition();
         } else {
             return false;
         }
@@ -151,12 +149,7 @@ contract Handler {
         view
         returns (bool)
     {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(_V3InterfaceAddress);
-        (, int256 price,,,) = priceFeed.latestRoundData();
-        uint256 priceValue = uint256(price);
-        uint256 priceDecimals = 10 ** priceFeed.decimals();
-
-        uint256 priceWithTwoDecimals = (priceValue * 100) / priceDecimals;
+        uint256 priceWithTwoDecimals = getChainlinkData(_V3InterfaceAddress);
 
         // Greater than Value
         if (parameter == 0) {
@@ -176,8 +169,8 @@ contract Handler {
         returns (bool)
     {
         // Overall Portfolio Value
-        (uint256 totalCollateralBase, uint256 totalDebtBase,,, uint256 ltv, uint256 healthFactor) =
-            aavePool.getUserAccountData(_borrower);
+        (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 ltv, uint256 healthFactor) =
+            getAavePortfolioData(_borrower);
 
         // Check paramter is greater than totalCollateralBase
         if (_parameter == 0) {
@@ -213,14 +206,8 @@ contract Handler {
         view
         returns (bool)
     {
-        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
-        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
-
-        address variableDebtToken = aavePool.getReserveVariableDebtToken(_asset);
-
-        uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_borrower);
-
-        uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
+        (uint256 assetPrice, uint256 debtBalance, uint256 debtBalanceInBaseCurrency) =
+            getAaveDebtData(_asset, _borrower);
 
         // Greater than asset Price
         if (_parameter == 0) {
@@ -250,14 +237,8 @@ contract Handler {
         view
         returns (bool)
     {
-        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
-        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
-
-        address aToken = aavePool.getReserveAToken(_asset);
-
-        uint256 collateralBalance = IERC20(aToken).balanceOf(_borrower);
-
-        uint256 collateralBalanceInBaseCurrency = (collateralBalance * assetPrice) / assetUnit;
+        (uint256 assetPrice, uint256 collateralBalance, uint256 collateralBalanceInBaseCurrency) =
+            getAaveCollateralData(_asset, _borrower);
 
         // Greater than asset Price
         if (_parameter == 0) {
@@ -324,8 +305,6 @@ contract Handler {
 
         return false;
     }
-
-    function checkEulerCondition() public view returns (bool) {}
 
     function executeOrder(address vault, bytes32 _orderId, address _solver, IRouter.Route[] calldata route)
         external
@@ -520,5 +499,46 @@ contract Handler {
 
     function convertToDepositAddress(uint16 input) public pure returns (address) {
         return address(uint160(uint256(input)));
+    }
+
+    function getChainlinkData(address _V3InterfaceAddress) public view returns (uint256) {
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(_V3InterfaceAddress);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        uint256 priceValue = uint256(price);
+        uint256 priceDecimals = 10 ** priceFeed.decimals();
+
+        return ((priceValue * 100) / priceDecimals);
+    }
+
+    function getAavePortfolioData(address _borrower) public view returns (uint256, uint256, uint256, uint256) {
+        (uint256 totalCollateralBase, uint256 totalDebtBase,,, uint256 ltv, uint256 healthFactor) =
+            aavePool.getUserAccountData(_borrower);
+        return (totalCollateralBase, totalDebtBase, ltv, healthFactor);
+    }
+
+    function getAaveDebtData(address _asset, address _borrower) public view returns (uint256, uint256, uint256) {
+        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
+        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
+
+        address variableDebtToken = aavePool.getReserveVariableDebtToken(_asset);
+
+        uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_borrower);
+
+        uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
+
+        return (assetPrice, debtBalance, debtBalanceInBaseCurrency);
+    }
+
+    function getAaveCollateralData(address _asset, address _borrower) public view returns (uint256, uint256, uint256) {
+        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
+        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
+
+        address aToken = aavePool.getReserveAToken(_asset);
+
+        uint256 collateralBalance = IERC20(aToken).balanceOf(_borrower);
+
+        uint256 collateralBalanceInBaseCurrency = (collateralBalance * assetPrice) / assetUnit;
+
+        return (assetPrice, collateralBalance, collateralBalanceInBaseCurrency);
     }
 }
