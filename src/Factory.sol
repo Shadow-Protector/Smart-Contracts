@@ -10,11 +10,19 @@ contract VaultFactory {
     address public handler;
     uint256 public platformFee;
 
+    struct CrossChainData {
+        address usdc;
+        address tokenMessenger;
+        address messageTransmitter;
+        uint32 destinationDomain;
+    }
+
     // Mappings
     mapping(address => address) private vaults;
+    mapping(uint32 => CrossChainData) private crossChainData;
 
     // Events
-    event VaultCreated(address indexed vaultAddress, address indexed owner);
+    event VaultCreated(address vaultAddress, address owner);
 
     event UpdatedOwner(address oldOwner, address newOwner);
 
@@ -25,7 +33,8 @@ contract VaultFactory {
         uint32 destinationChainId,
         uint32 _salt,
         uint256 conditionValue,
-        address vault
+        address vault,
+        bytes32 orderId
     );
 
     event OrderCancelled(address indexed vaultAddress, bytes32 indexed orderId);
@@ -81,29 +90,21 @@ contract VaultFactory {
     }
 
     function emitOrderCreation(
-        uint8 _platform,
-        address _platformAddress,
-        uint8 _parameter,
-        uint32 destinationChainId,
-        uint32 _salt,
-        address _owner
-    ) external {}
-
-    function emitOrderCreation(
         uint16 _platform,
         address _platformAddress,
         uint16 _parameter,
         uint32 destinationChainId,
         uint32 _salt,
         uint256 conditionValue,
-        address _vaultOwner
+        address _vaultOwner,
+        bytes32 orderId
     ) external payable {
         assert(msg.value >= platformFee);
 
         assert(msg.sender == vaults[_vaultOwner]);
 
         emit OrderCreated(
-            _platform, _platformAddress, _parameter, destinationChainId, _salt, conditionValue, msg.sender
+            _platform, _platformAddress, _parameter, destinationChainId, _salt, conditionValue, msg.sender, orderId
         );
     }
 
@@ -157,5 +158,16 @@ contract VaultFactory {
 
     function getVault(address _owner) external view returns (address) {
         return vaults[_owner];
+    }
+
+    function getCrossChainData(uint32 _chainId) external view returns (CrossChainData memory) {
+        return crossChainData[_chainId];
+    }
+
+    function setCrossChainData(uint32 _chainId, address _usdc, address _tokenMessenger, address _messageTransmitter)
+        external
+        OnlyOwner
+    {
+        crossChainData[_chainId] = CrossChainData(_usdc, _tokenMessenger, _messageTransmitter, _chainId);
     }
 }

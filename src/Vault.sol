@@ -105,7 +105,7 @@ contract Vault {
 
         // Emit Event order creation
         IFactory(factoryContract).emitOrderCreation{value: msg.value}(
-            _platform, _platformAddress, _parameter, destinationChainId, _salt, conditionValue, owner
+            _platform, _platformAddress, _parameter, destinationChainId, _salt, conditionValue, owner, orderId
         );
     }
 

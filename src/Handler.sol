@@ -49,7 +49,7 @@ contract Handler {
     address public usdc;
     IAavePool public immutable aavePool;
     IPriceOracleGetter public immutable aavePriceGetter;
-
+    uint8 public routeLength = 1;
     IMorpho public immutable morphoPool;
 
     // Aerodrome Router
@@ -71,8 +71,10 @@ contract Handler {
 
     // Errors
     error InvalidRoute();
+    error InvalidRouteLength(uint256 routeLength, uint8 requiredRouteLength);
     error InvalidStartToken(address requiredToken, address startToken);
     error InvalidEndToken(address requiredToken, address endToken);
+    error InvalidMorphoVault(address vaultId);
 
     constructor(address _aavePool, address _aavePriceGetter, address _morphoPool, address _aerodromeRouter) {
         owner = msg.sender;
@@ -104,14 +106,18 @@ contract Handler {
         crossChainHandlers[_chainId] = _handler;
     }
 
-    function addMorphoMarket(address _market, bytes32 _id) external onlyOwner {
-        morphoMarket[_market] = _id;
-        emit MorphoMarketAdded(_market, _id);
+    function updateRouteLength(uint8 _routeLength) external onlyOwner {
+        routeLength = _routeLength;
     }
 
-    function addMorphoVault(address _vault, address _vaultId) external onlyOwner {
-        morphoVaults[_vault] = _vaultId;
-        emit MorphoVaultAdded(_vault, _vaultId);
+    function addMorphoMarket(address _market, bytes32 _marketId) external onlyOwner {
+        morphoMarket[_market] = _marketId;
+        emit MorphoMarketAdded(_market, _marketId);
+    }
+
+    function addMorphoVault(address _vaultId, address _vaultAddress) external onlyOwner {
+        morphoVaults[_vaultId] = _vaultAddress;
+        emit MorphoVaultAdded(_vaultId, _vaultAddress);
     }
 
     function rescueFunds(address _token, uint256 _amount) external onlyOwner {
@@ -141,7 +147,7 @@ contract Handler {
     }
 
     function getDepositToken(address token, uint16 assetType) external view returns (address) {
-        return _getDepsitToken(token, assetType);
+        return _getDepositToken(token, assetType);
     }
 
     function checkChainlinkCondition(address _V3InterfaceAddress, uint16 parameter, uint256 conditionValue)
@@ -149,7 +155,12 @@ contract Handler {
         view
         returns (bool)
     {
-        uint256 priceWithTwoDecimals = getChainlinkData(_V3InterfaceAddress);
+        AggregatorV3Interface priceFeed = AggregatorV3Interface(_V3InterfaceAddress);
+        (, int256 price,,,) = priceFeed.latestRoundData();
+        uint256 priceValue = uint256(price);
+        uint256 priceDecimals = 10 ** priceFeed.decimals();
+
+        uint256 priceWithTwoDecimals = ((priceValue * 100) / priceDecimals);
 
         // Greater than Value
         if (parameter == 0) {
@@ -169,8 +180,8 @@ contract Handler {
         returns (bool)
     {
         // Overall Portfolio Value
-        (uint256 totalCollateralBase, uint256 totalDebtBase, uint256 ltv, uint256 healthFactor) =
-            getAavePortfolioData(_borrower);
+        (uint256 totalCollateralBase, uint256 totalDebtBase,,,, uint256 healthFactor) =
+            aavePool.getUserAccountData(_borrower);
 
         // Check paramter is greater than totalCollateralBase
         if (_parameter == 0) {
@@ -184,17 +195,11 @@ contract Handler {
         } // Check paramter is less or equal to totalDebtBase
         else if (_parameter == 3) {
             return totalDebtBase <= conditionValue;
-        } // Check paramter is greater than ltv
-        else if (_parameter == 4) {
-            return ltv > conditionValue;
-        } // Check paramter is less or equal to ltv
-        else if (_parameter == 5) {
-            return ltv <= conditionValue;
         } // Check parameter is greater than healthFactor
-        else if (_parameter == 6) {
+        else if (_parameter == 4) {
             return healthFactor > conditionValue;
         } // Check paramter is less or equal to healthFactor
-        else if (_parameter == 7) {
+        else if (_parameter == 5) {
             return healthFactor <= conditionValue;
         }
 
@@ -206,8 +211,14 @@ contract Handler {
         view
         returns (bool)
     {
-        (uint256 assetPrice, uint256 debtBalance, uint256 debtBalanceInBaseCurrency) =
-            getAaveDebtData(_asset, _borrower);
+        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
+        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
+
+        address variableDebtToken = aavePool.getReserveVariableDebtToken(_asset);
+
+        uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_borrower);
+
+        uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
 
         // Greater than asset Price
         if (_parameter == 0) {
@@ -237,8 +248,14 @@ contract Handler {
         view
         returns (bool)
     {
-        (uint256 assetPrice, uint256 collateralBalance, uint256 collateralBalanceInBaseCurrency) =
-            getAaveCollateralData(_asset, _borrower);
+        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
+        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
+
+        address aToken = aavePool.getReserveAToken(_asset);
+
+        uint256 collateralBalance = IERC20(aToken).balanceOf(_borrower);
+
+        uint256 collateralBalanceInBaseCurrency = (collateralBalance * assetPrice) / assetUnit;
 
         // Greater than asset Price
         if (_parameter == 0) {
@@ -320,7 +337,7 @@ contract Handler {
         IVault(vault).executeOrder{value: msg.value}(_orderId, _solver);
 
         if (destinationChainId == block.chainid) {
-            address depositToken = _getDepsitToken(order.token, order.assetType);
+            address depositToken = _getDepositToken(order.token, order.assetType);
 
             // transfer tokens
             IERC20(depositToken).transferFrom(vault, address(this), order.amount);
@@ -334,6 +351,10 @@ contract Handler {
                     revert InvalidRoute();
                 }
 
+                if (route.length > routeLength) {
+                    revert InvalidRouteLength(route.length, routeLength);
+                }
+
                 if (route[0].from != order.token) {
                     revert InvalidStartToken(order.token, route[0].from);
                 }
@@ -342,15 +363,16 @@ contract Handler {
                     revert InvalidEndToken(order.convert, route[route.length - 1].to);
                 }
 
-                // Get First Pool for swap
-                address pool = aerodromeRouter.poolFor(route[0].from, route[0].to, route[0].stable, route[0].factory);
-
                 // Approve Call to Aerodrome Router
-                IERC20(order.token).approve(pool, amount);
+                IERC20(order.token).approve(address(aerodromeRouter), amount);
+
+                // Get Swap Output
+                uint256[] memory amounts = aerodromeRouter.getAmountsOut(amount, route);
 
                 // Swap Operation
-                uint256[] memory output =
-                    aerodromeRouter.swapExactTokensForTokens(amount, 0, route, address(this), block.timestamp);
+                uint256[] memory output = aerodromeRouter.swapExactTokensForTokens(
+                    amount, amounts[amounts.length - 1], route, address(this), block.timestamp
+                );
 
                 amount = output[output.length - 1];
             }
@@ -404,7 +426,7 @@ contract Handler {
         if (_platform >= 2 && _platform <= 1002) {
             address vaultAddress = morphoVaults[convertToDepositAddress(_platform)];
             if (vaultAddress == address(0)) {
-                _platform = 0;
+                revert InvalidMorphoVault(convertToDepositAddress(_platform));
             } else {
                 address confirmAsset = IMetaMorpho(vaultAddress).asset();
 
@@ -471,7 +493,7 @@ contract Handler {
         (address _owner, OrderExecutionDetails memory order) = IVault(vault).getOrderExecutionDetails(_orderId);
 
         // Get Deposit Token
-        address depositToken = _getDepsitToken(order.token, order.assetType);
+        address depositToken = _getDepositToken(order.token, order.assetType);
 
         // transfer tokens
         IERC20(depositToken).transferFrom(vault, address(this), order.amount);
@@ -484,7 +506,7 @@ contract Handler {
         IERC20(depositToken).transfer(_owner, amount);
     }
 
-    function _getDepsitToken(address token, uint16 assetType) internal view returns (address) {
+    function _getDepositToken(address token, uint16 assetType) internal view returns (address) {
         if (assetType == 1) {
             return aavePool.getReserveAToken(token);
         }
@@ -499,46 +521,5 @@ contract Handler {
 
     function convertToDepositAddress(uint16 input) public pure returns (address) {
         return address(uint160(uint256(input)));
-    }
-
-    function getChainlinkData(address _V3InterfaceAddress) public view returns (uint256) {
-        AggregatorV3Interface priceFeed = AggregatorV3Interface(_V3InterfaceAddress);
-        (, int256 price,,,) = priceFeed.latestRoundData();
-        uint256 priceValue = uint256(price);
-        uint256 priceDecimals = 10 ** priceFeed.decimals();
-
-        return ((priceValue * 100) / priceDecimals);
-    }
-
-    function getAavePortfolioData(address _borrower) public view returns (uint256, uint256, uint256, uint256) {
-        (uint256 totalCollateralBase, uint256 totalDebtBase,,, uint256 ltv, uint256 healthFactor) =
-            aavePool.getUserAccountData(_borrower);
-        return (totalCollateralBase, totalDebtBase, ltv, healthFactor);
-    }
-
-    function getAaveDebtData(address _asset, address _borrower) public view returns (uint256, uint256, uint256) {
-        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
-        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
-
-        address variableDebtToken = aavePool.getReserveVariableDebtToken(_asset);
-
-        uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_borrower);
-
-        uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
-
-        return (assetPrice, debtBalance, debtBalanceInBaseCurrency);
-    }
-
-    function getAaveCollateralData(address _asset, address _borrower) public view returns (uint256, uint256, uint256) {
-        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
-        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
-
-        address aToken = aavePool.getReserveAToken(_asset);
-
-        uint256 collateralBalance = IERC20(aToken).balanceOf(_borrower);
-
-        uint256 collateralBalanceInBaseCurrency = (collateralBalance * assetPrice) / assetUnit;
-
-        return (assetPrice, collateralBalance, collateralBalanceInBaseCurrency);
     }
 }

@@ -9,7 +9,8 @@ interface IFactory {
         uint32 destinationChainId,
         uint32 _salt,
         uint256 conditionValue,
-        address _vaultOwner
+        address _vaultOwner,
+        bytes32 orderId
     ) external payable;
 
     function addVault(address _vault, address _owner) external;
