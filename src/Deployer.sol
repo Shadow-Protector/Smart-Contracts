@@ -4,6 +4,9 @@ pragma solidity ^0.8.26;
 import {Vault} from "./Vault.sol";
 import {IFactory} from "./interfaces/IFactory.sol";
 
+/// @title Vault Deployer
+/// @author Shadow Protector, @parizval
+/// @notice Vault Deployer allows deploying of new User Vaults.
 contract VaultDeployer {
     address private owner;
     address public factory;

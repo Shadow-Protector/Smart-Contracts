@@ -27,11 +27,11 @@ contract VaultFactory {
     event UpdatedOwner(address oldOwner, address newOwner);
 
     event OrderCreated(
-        uint16 _platform,
-        address _platformAddress,
-        uint16 _parameter,
+        uint16 platform,
+        address platformAddress,
+        uint16 parameter,
         uint32 destinationChainId,
-        uint32 _salt,
+        uint32 salt,
         uint256 conditionValue,
         address vault,
         bytes32 orderId
@@ -41,7 +41,7 @@ contract VaultFactory {
 
     event OrderExecuted(address indexed vaultAddress, bytes32 indexed orderId);
 
-    event AssetDeposited(address vaultAddress, bytes32 orderId);
+    event AssetDeposited(address vaultAddress, bytes32 orderId, address depositToken, address convertToken);
 
     event CancelDeposit(address vaultAddress, bytes32 orderId);
 
@@ -120,10 +120,12 @@ contract VaultFactory {
         emit OrderCancelled(msg.sender, OrderId);
     }
 
-    function emitDepositEvent(address _vaultOwner, bytes32 _orderId) external {
+    function emitDepositEvent(address _vaultOwner, bytes32 _orderId, address depositToken, address convertToken)
+        external
+    {
         assert(msg.sender == vaults[_vaultOwner]);
 
-        emit AssetDeposited(msg.sender, _orderId);
+        emit AssetDeposited(msg.sender, _orderId, depositToken, convertToken);
     }
 
     function emitCancelDeposit(address _vaultOwner, bytes32 _orderId) external {

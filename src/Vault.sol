@@ -136,8 +136,10 @@ contract Vault {
         if (chainId == block.chainid) {
             _cancelAssetDeposit(orderId);
         } else {
-            // Broadcast Canceel Asset Deposit to External Chain
-            sendMessageToDestinationChain(chainId, orderId, 0);
+            if (address(this).balance != 0) {
+                // Broadcast Canceel Asset Deposit to External Chain
+                sendMessageToDestinationChain(chainId, orderId, 0);
+            }
         }
     }
 
@@ -164,7 +166,7 @@ contract Vault {
             revert ConditionEvaluationFailed();
         }
 
-        // TODO:Execute the order
+        // TODO:Execute the order for cross-chain order
         _executeOrder(_orderId, destinationChainId, handler);
 
         IERC20(order.tipToken).transfer(_solver, order.tipAmount);
@@ -182,10 +184,16 @@ contract Vault {
             address depositToken = IFactory(factoryContract).getDepositToken(order.token, order.assetType);
 
             IERC20(depositToken).approve(handler, order.amount);
+
+            // Deleting the order condition details
+            delete orders[orderId];
         } else {
             // Broadcast Execute Oder to External Chain
             sendMessageToDestinationChain(chainId, orderId, 1);
         }
+
+        // Deleting the order execution details
+        delete orderExecutionDetails[orderId];
     }
 
     function depositAsset(
@@ -216,7 +224,7 @@ contract Vault {
         IERC20(depositToken).transferFrom(owner, address(this), _tokenAmount);
 
         // Emit Event of asset Deposit to Factory Contract
-        IFactory(factoryContract).emitDepositEvent(owner, _orderId);
+        IFactory(factoryContract).emitDepositEvent(owner, _orderId, _token, _convert);
     }
 
     function cancelAssetDeposit(bytes32 _orderId) external OnlyOwner {
@@ -238,6 +246,9 @@ contract Vault {
 
             // Emit Event of asset Deposit cancellation to Factory Contract
             IFactory(factoryContract).emitCancelDeposit(owner, _orderId);
+
+            // Deleting the order execution details
+            delete orderExecutionDetails[_orderId];
         }
     }
 
