@@ -41,7 +41,6 @@ contract Vault is IVault {
     error NotHandler(address handler, address sender);
     error NotSufficientOrderCreationFee(uint256 currentBalance, uint256 platformFee);
 
-
     constructor(address _owner, address _factoryContract, address _hyperlaneMailbox) {
         owner = _owner;
         factoryContract = _factoryContract;
