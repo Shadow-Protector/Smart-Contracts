@@ -39,6 +39,8 @@ contract Vault is IVault {
 
     error InvalidCrossChainSender(bytes32 sender);
     error NotHandler(address handler, address sender);
+    error NotSufficientOrderCreationFee(uint256 currentBalance, uint256 platformFee);
+
 
     constructor(address _owner, address _factoryContract, address _hyperlaneMailbox) {
         owner = _owner;
@@ -92,7 +94,7 @@ contract Vault is IVault {
         uint256 platformFee = IFactory(factoryContract).platformFee();
 
         if (address(this).balance < platformFee) {
-            // TODO: Add revert
+            revert NotSufficientOrderCreationFee(address(this).balance, platformFee);
         }
 
         // Emit Event order creation
