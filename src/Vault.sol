@@ -7,30 +7,15 @@ import {StandardHookMetadata} from "./interfaces/hyperlane/HyperlaneHook.sol";
 
 import {IFactory} from "./interfaces/IFactory.sol";
 
+import {IVault, OrderDetails, OrderExecutionDetails} from "./interfaces/IVault.sol";
+
 // Operation Codes
 // 0: Cancel Order
 // 1: Execute Order with Supply
 // 2: Execute Order with Repay
 
-struct OrderDetails {
-    uint256 conditionValue;
-    // Order Tip Details
-    address tipToken;
-    uint256 tipAmount;
-}
-
-struct OrderExecutionDetails {
-    address token;
-    address convert;
-    uint256 amount;
-    uint16 assetType;
-    // Deposit details
-    uint16 platform;
-    bool repay;
-}
-
 // User Vault
-contract Vault {
+contract Vault is IVault {
     // State variables
     address private immutable owner;
     address private immutable factoryContract;
@@ -103,8 +88,15 @@ contract Vault {
         // Transfer the tip amount from the sender to the contract
         IERC20(tipToken).transferFrom(msg.sender, address(this), tipAmount);
 
+        // Get Platform Fee from Factory Contract
+        uint256 platformFee = IFactory(factoryContract).platformFee();
+
+        if (address(this).balance < platformFee) {
+            // TODO: Add revert
+        }
+
         // Emit Event order creation
-        IFactory(factoryContract).emitOrderCreation{value: msg.value}(
+        IFactory(factoryContract).emitOrderCreation{value: platformFee}(
             _platform, _platformAddress, _parameter, destinationChainId, _salt, conditionValue, owner, orderId
         );
     }

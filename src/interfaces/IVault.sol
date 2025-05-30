@@ -10,6 +10,13 @@ struct OrderExecutionDetails {
     bool repay;
 }
 
+struct OrderDetails {
+    uint256 conditionValue;
+    // Order Tip Details
+    address tipToken;
+    uint256 tipAmount;
+}
+
 interface IVault {
     function decodeKey(bytes calldata orderId)
         external

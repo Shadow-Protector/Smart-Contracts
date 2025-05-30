@@ -2,8 +2,9 @@
 pragma solidity ^0.8.26;
 
 import {IHandler} from "./interfaces/IHandler.sol";
+import {IFactory} from "./interfaces/IFactory.sol";
 
-contract VaultFactory {
+contract VaultFactory is IFactory {
     // State Storage Variables
     address private owner;
     address public vaultDeployer;

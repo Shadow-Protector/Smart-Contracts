@@ -18,6 +18,8 @@ import {IRouter} from "./interfaces/aerodrome/IRouter.sol";
 
 import {IVault, OrderExecutionDetails} from "./interfaces/IVault.sol";
 
+import {IHandler} from "./interfaces/IHandler.sol";
+
 // Condition parameters (32 bytes)
 // -> (platform type) (type = number)
 //   -> Chainlink for prices
@@ -40,7 +42,7 @@ import {IVault, OrderExecutionDetails} from "./interfaces/IVault.sol";
 //   -> Morpho Values
 //   -> Euler Values
 
-contract Handler {
+contract Handler is IHandler {
     using MathLib for uint256;
     using SharesMathLib for uint256;
 
