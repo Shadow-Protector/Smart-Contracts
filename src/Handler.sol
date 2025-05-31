@@ -7,6 +7,8 @@ import {AggregatorV3Interface} from "foundry-chainlink-toolkit/src/interfaces/fe
 import {IAavePool} from "./interfaces/aave/IAavePool.sol";
 import {IPriceOracleGetter} from "./interfaces/aave/IAavePriceGetter.sol";
 
+import {ICCTP} from "./interfaces/circle/ICCTP.sol";
+
 import {IOracle} from "./interfaces/morpho/IMorphoOracle.sol";
 import {IMorpho, MarketParams, Id, Position, Market} from "../src/interfaces/morpho/IMorpho.sol";
 import {IMetaMorpho} from "./interfaces/morpho/IMetaMorpho.sol";
@@ -17,7 +19,7 @@ import {SharesMathLib} from "./lib/SharesMathLib.sol";
 import {IRouter} from "./interfaces/aerodrome/IRouter.sol";
 
 import {IVault, OrderExecutionDetails} from "./interfaces/IVault.sol";
-
+import {IFactory, CrossChainData} from "./interfaces/IFactory.sol";
 import {IHandler} from "./interfaces/IHandler.sol";
 
 // Condition parameters (32 bytes)
@@ -42,13 +44,15 @@ import {IHandler} from "./interfaces/IHandler.sol";
 //   -> Morpho Values
 //   -> Euler Values
 
+/// @title Handler
+/// @author Shadow Protector, @parizval
+/// @notice Handler Contract evaluates order conditon, interacts with Solvers for executing orders, swapping tokens, supplying or repaying assets to Aave, Morpho or User.
 contract Handler is IHandler {
     using MathLib for uint256;
     using SharesMathLib for uint256;
 
     address public owner;
     address public factory;
-    address public usdc;
     IAavePool public immutable aavePool;
     IPriceOracleGetter public immutable aavePriceGetter;
     uint8 public routeLength = 1;
@@ -63,7 +67,6 @@ contract Handler is IHandler {
     mapping(address => bytes32) public morphoMarket;
     mapping(address => address) public morphoVaults;
     mapping(address => address) public eulerDepositVaults;
-    mapping(uint32 => address) public crossChainHandlers;
 
     // Events
     event UpdatedOwner(address oldOwner, address newOwner);
@@ -72,11 +75,13 @@ contract Handler is IHandler {
     event MorphoVaultAdded(address vault, address vaultId);
 
     // Errors
+    error NotOwner(address sender, address owner);
     error InvalidRoute();
     error InvalidRouteLength(uint256 routeLength, uint8 requiredRouteLength);
     error InvalidStartToken(address requiredToken, address startToken);
     error InvalidEndToken(address requiredToken, address endToken);
     error InvalidMorphoVault(address vaultId);
+    error BaseTokenNotUSDC(address token, address usdc);
 
     constructor(address _aavePool, address _aavePriceGetter, address _morphoPool, address _aerodromeRouter) {
         owner = msg.sender;
@@ -86,43 +91,37 @@ contract Handler is IHandler {
         aerodromeRouter = IRouter(_aerodromeRouter);
     }
 
-    modifier onlyOwner() {
-        require(msg.sender == owner);
+    modifier OnlyOwner() {
+        if (msg.sender != owner) {
+            revert NotOwner(msg.sender, owner);
+        }
         _;
     }
 
-    function updateOwner(address _newOwner) external onlyOwner {
+    function updateOwner(address _newOwner) external OnlyOwner {
         emit UpdatedOwner(owner, _newOwner);
         owner = _newOwner;
     }
 
-    function updateFactory(address _factory) external onlyOwner {
+    function updateFactory(address _factory) external OnlyOwner {
         factory = _factory;
     }
 
-    function updateUsdc(address _usdc) external onlyOwner {
-        usdc = _usdc;
-    }
-
-    function addCrossChainHandler(uint32 _chainId, address _handler) external onlyOwner {
-        crossChainHandlers[_chainId] = _handler;
-    }
-
-    function updateRouteLength(uint8 _routeLength) external onlyOwner {
+    function updateRouteLength(uint8 _routeLength) external OnlyOwner {
         routeLength = _routeLength;
     }
 
-    function addMorphoMarket(address _market, bytes32 _marketId) external onlyOwner {
+    function addMorphoMarket(address _market, bytes32 _marketId) external OnlyOwner {
         morphoMarket[_market] = _marketId;
         emit MorphoMarketAdded(_market, _marketId);
     }
 
-    function addMorphoVault(address _vaultId, address _vaultAddress) external onlyOwner {
+    function addMorphoVault(address _vaultId, address _vaultAddress) external OnlyOwner {
         morphoVaults[_vaultId] = _vaultAddress;
         emit MorphoVaultAdded(_vaultId, _vaultAddress);
     }
 
-    function rescueFunds(address _token, uint256 _amount) external onlyOwner {
+    function rescueFunds(address _token, uint256 _amount) external OnlyOwner {
         IERC20(_token).transfer(owner, _amount);
     }
 
@@ -384,6 +383,10 @@ contract Handler is IHandler {
         }
     }
 
+    function executeCrossChainOrder() public {}
+
+    function handleCrossChainUSDC(address owner, address convert, uint16 platform, bool repay) external {}
+
     function handleTransformation(address token, uint16 assetType, uint256 amount) internal returns (uint256) {
         if (assetType == 1) {
             // Calling Aave Pool withdraw function
@@ -504,8 +507,46 @@ contract Handler is IHandler {
         uint256 amount = handleTransformation(order.token, order.assetType, order.amount);
 
         // TODO: Cross Chain transfer
-
         IERC20(depositToken).transfer(_owner, amount);
+
+        // Get Cross Chain Data
+        (address usdc, address tokenMessenger, CrossChainData memory crossChainData) =
+            IFactory(factory).getCrossChainData(destinationChainId);
+
+        // Check that the base token is USDC
+        if (order.token != usdc) {
+            // Return Error
+            revert BaseTokenNotUSDC(order.token, usdc);
+        }
+
+        // Approve Call to Token Messenger
+        IERC20(usdc).approve(tokenMessenger, amount);
+
+        // address Owner -> 20 bytes
+        // Convert Token -> 20 bytes
+        // uint16 platform -> 2 bytes
+        // bool repay -> 1 byte
+        bytes memory callData = abi.encodeWithSignature(
+            "handleCrossChainUSDC(address owner, address convert, uint16 platform, bool repay)",
+            _owner,
+            order.convert,
+            order.platform,
+            order.repay
+        );
+
+        bytes memory hookData = abi.encode(crossChainData.handler, callData);
+
+        // Calling Token Messenger to bridge tokens along with the order details
+        ICCTP(tokenMessenger).depositForBurnWithHook(
+            amount,
+            crossChainData.destinationDomain,
+            addressToBytes32(crossChainData.handler), // mintRecipient
+            usdc,
+            addressToBytes32(crossChainData.factory),
+            0,
+            1000,
+            hookData
+        );
     }
 
     function _getDepositToken(address token, uint16 assetType) internal view returns (address) {
@@ -523,5 +564,9 @@ contract Handler is IHandler {
 
     function convertToDepositAddress(uint16 input) public pure returns (address) {
         return address(uint160(uint256(input)));
+    }
+
+    function addressToBytes32(address _addr) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(_addr)));
     }
 }

@@ -14,7 +14,9 @@ import {IVault, OrderDetails, OrderExecutionDetails} from "./interfaces/IVault.s
 // 1: Execute Order with Supply
 // 2: Execute Order with Repay
 
-// User Vault
+/// @title Vault Deployer
+/// @author Shadow Protector, @parizval
+/// @notice Vault allows users to create, deposit, cancel and handle cross-chain
 contract Vault is IVault {
     // State variables
     address private immutable owner;

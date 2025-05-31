@@ -2,21 +2,17 @@
 pragma solidity ^0.8.26;
 
 import {IHandler} from "./interfaces/IHandler.sol";
-import {IFactory} from "./interfaces/IFactory.sol";
+import {IFactory, CrossChainData} from "./interfaces/IFactory.sol";
 
+/// @title Vault Factory
+/// @author Shadow Protector, @parizval
+/// @notice Maintains the registry of vaults, emits events for solvers, acts as an intermediary between vaults and handler.
 contract VaultFactory is IFactory {
     // State Storage Variables
     address private owner;
     address public vaultDeployer;
     address public handler;
     uint256 public platformFee;
-
-    struct CrossChainData {
-        address usdc;
-        address tokenMessenger;
-        address messageTransmitter;
-        uint32 destinationDomain;
-    }
 
     // Mappings
     mapping(address => address) private vaults;
@@ -47,8 +43,8 @@ contract VaultFactory is IFactory {
     event CancelDeposit(address vaultAddress, bytes32 orderId);
 
     event UpdatedHandler(address indexed newConditionEvaluator, address oldConditionEvaluator);
-    // Errors
 
+    // Errors
     error NotOwner(address sender, address owner);
 
     constructor(address _handler, uint256 _platformFee) {
@@ -163,14 +159,24 @@ contract VaultFactory is IFactory {
         return vaults[_owner];
     }
 
-    function getCrossChainData(uint32 _chainId) external view returns (CrossChainData memory) {
-        return crossChainData[_chainId];
+    function getCrossChainData(uint32 _chainId)
+        external
+        view
+        returns (address usdc, address tokenMessenger, CrossChainData memory)
+    {
+        CrossChainData memory currentChain = crossChainData[uint32(block.chainid)];
+        return (currentChain.usdc, currentChain.tokenMessenger, crossChainData[_chainId]);
     }
 
-    function setCrossChainData(uint32 _chainId, address _usdc, address _tokenMessenger, address _messageTransmitter)
-        external
-        OnlyOwner
-    {
-        crossChainData[_chainId] = CrossChainData(_usdc, _tokenMessenger, _messageTransmitter, _chainId);
+    function setCrossChainData(
+        uint32 _chainId,
+        address _usdc,
+        address _tokenMessenger,
+        address _messageTransmitter,
+        address _factory,
+        address _handler
+    ) external OnlyOwner {
+        crossChainData[_chainId] =
+            CrossChainData(_usdc, _tokenMessenger, _messageTransmitter, _factory, _handler, _chainId);
     }
 }
