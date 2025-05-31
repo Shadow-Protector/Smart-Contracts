@@ -1,6 +1,15 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
+struct CrossChainData {
+    address usdc;
+    address tokenMessenger;
+    address messageTransmitter;
+    address factory;
+    address handler;
+    uint32 destinationDomain;
+}
+
 interface IFactory {
     function emitOrderCreation(
         uint16 _platform,
@@ -39,4 +48,9 @@ interface IFactory {
     function getDepositToken(address token, uint16 assetType) external view returns (address);
 
     function platformFee() external view returns (uint256);
+
+    function getCrossChainData(uint32 _chainId)
+        external
+        view
+        returns (address usdc, address tokenMessenger, CrossChainData memory);
 }
