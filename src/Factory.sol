@@ -177,6 +177,11 @@ contract VaultFactory is IFactory {
         return (currentChain.usdc, currentChain.tokenMessenger, crossChainData[_chainId]);
     }
 
+    function getMessageTransmitter() external view returns (address messageTransmitter, address usdc) {
+        CrossChainData memory currentChain = crossChainData[uint32(block.chainid)];
+        return (currentChain.messageTransmitter, currentChain.usdc);
+    }
+
     function setCrossChainData(
         uint32 _chainId,
         address _usdc,

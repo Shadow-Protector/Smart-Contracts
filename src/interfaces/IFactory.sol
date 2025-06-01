@@ -54,4 +54,6 @@ interface IFactory {
         external
         view
         returns (address usdc, address tokenMessenger, CrossChainData memory);
+
+    function getMessageTransmitter() external view returns (address messageTransmitter, address usdc);
 }

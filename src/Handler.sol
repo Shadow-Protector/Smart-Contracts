@@ -8,7 +8,7 @@ import {IAavePool} from "./interfaces/aave/IAavePool.sol";
 import {IPriceOracleGetter} from "./interfaces/aave/IAavePriceGetter.sol";
 
 import {ICCTP} from "./interfaces/circle/ICCTP.sol";
-
+import {IMessageTransmitter} from "./interfaces/circle/IMessageTransmitter.sol";
 import {IOracle} from "./interfaces/morpho/IMorphoOracle.sol";
 import {IMorpho, MarketParams, Id, Position, Market} from "../src/interfaces/morpho/IMorpho.sol";
 import {IMetaMorpho} from "./interfaces/morpho/IMetaMorpho.sol";
@@ -82,6 +82,7 @@ contract Handler is IHandler {
     error InvalidEndToken(address requiredToken, address endToken);
     error InvalidMorphoVault(address vaultId);
     error BaseTokenNotUSDC(address token, address usdc);
+    error SenderNotMessageTransmitter(address sender, address messageTransmitter);
 
     constructor(address _aavePool, address _aavePriceGetter, address _morphoPool, address _aerodromeRouter) {
         owner = msg.sender;
@@ -348,34 +349,7 @@ contract Handler is IHandler {
 
             // swap tokens
             if (order.token != order.convert) {
-                if (route.length == 0) {
-                    revert InvalidRoute();
-                }
-
-                if (route.length > routeLength) {
-                    revert InvalidRouteLength(route.length, routeLength);
-                }
-
-                if (route[0].from != order.token) {
-                    revert InvalidStartToken(order.token, route[0].from);
-                }
-
-                if (route[route.length - 1].to != order.convert) {
-                    revert InvalidEndToken(order.convert, route[route.length - 1].to);
-                }
-
-                // Approve Call to Aerodrome Router
-                IERC20(order.token).approve(address(aerodromeRouter), amount);
-
-                // Get Swap Output
-                uint256[] memory amounts = aerodromeRouter.getAmountsOut(amount, route);
-
-                // Swap Operation
-                uint256[] memory output = aerodromeRouter.swapExactTokensForTokens(
-                    amount, amounts[amounts.length - 1], route, address(this), block.timestamp
-                );
-
-                amount = output[output.length - 1];
+                amount = swap(amount, route, order.token, order.convert);
             }
 
             // Deposit or Repay
@@ -389,16 +363,72 @@ contract Handler is IHandler {
         address _solver,
         IRouter.Route[] calldata route
     ) public {
+        (address messageTransmitter, address usdc) = IFactory(factory).getMessageTransmitter();
+
         // Call Token Minter to get the USDC and store the hook Data
+        IMessageTransmitter(messageTransmitter).receiveMessage(message, attestation);
 
+        // Storing messageTransmitter
+        assembly {
+            tstore(0x00, messageTransmitter)
+        }
 
+        // Fetching Variables for storage
+        bytes32 orderId;
+        address vaultOwner;
+        address convertToken;
+        uint16 platform;
+        bool repay;
 
+        assembly {
+            orderId := tload(0x00)
+            vaultOwner := tload(0x01)
+            convertToken := tload(0x03)
+            platform := tload(0x04)
+            repay := tload(0x05)
+        }
 
-        // Request Tip
-    
+        uint256 amount = IERC20(usdc).balanceOf(address(this));
+
+        // Executing Operation
+        if (convertToken != usdc) {
+            // Executing Swap
+            amount = swap(amount, route, usdc, convertToken);
+        }
+
+        // Handling Convert Token
+        handleDeposit(convertToken, amount, owner, platform, repay);
+
+        // Request Tip After Order Execution
+        IFactory(factory).getTipForCrossChainOrder(orderId, owner, _solver);
     }
 
-    function handleCrossChainUSDC(address _owner, address _convert, uint16 _platform, bool _repay) external {}
+    function handleCrossChainUSDC(
+        bytes32 _orderId,
+        address _vaultOwner,
+        address _convert,
+        uint16 _platform,
+        bool _repay
+    ) external {
+        address messageTransmitter;
+        assembly {
+            messageTransmitter := tload(0x00)
+        }
+
+        // Ensure Minter Call
+        if (msg.sender != messageTransmitter) {
+            revert SenderNotMessageTransmitter(msg.sender, messageTransmitter);
+        }
+
+        // Storing Execution Order Data
+        assembly {
+            tstore(0x01, _orderId)
+            tstore(0x02, _vaultOwner)
+            tstore(0x03, _convert)
+            tstore(0x04, _platform)
+            tstore(0x05, _repay)
+        }
+    }
 
     function handleTransformation(address token, uint16 assetType, uint256 amount) internal returns (uint256) {
         if (assetType == 1) {
@@ -573,6 +603,42 @@ contract Handler is IHandler {
         }
 
         return token;
+    }
+
+    function swap(uint256 amount, IRouter.Route[] calldata route, address startToken, address endToken)
+        internal
+        returns (uint256)
+    {
+        if (route.length == 0) {
+            revert InvalidRoute();
+        }
+
+        if (route.length > routeLength) {
+            revert InvalidRouteLength(route.length, routeLength);
+        }
+
+        if (route[0].from != startToken) {
+            revert InvalidStartToken(startToken, route[0].from);
+        }
+
+        if (route[route.length - 1].to != endToken) {
+            revert InvalidEndToken(endToken, route[route.length - 1].to);
+        }
+
+        // Approve Call to Aerodrome Router
+        IERC20(startToken).approve(address(aerodromeRouter), amount);
+
+        // Get Swap Output
+        uint256[] memory amounts = aerodromeRouter.getAmountsOut(amount, route);
+
+        // Swap Operation
+        uint256[] memory output = aerodromeRouter.swapExactTokensForTokens(
+            amount, amounts[amounts.length - 1], route, address(this), block.timestamp
+        );
+
+        amount = output[output.length - 1];
+
+        return amount;
     }
 
     function convertToDepositAddress(uint16 input) public pure returns (address) {
