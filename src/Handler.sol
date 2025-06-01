@@ -564,7 +564,7 @@ contract Handler is IHandler {
 
         // Approve Call to Token Messenger
         IERC20(usdc).approve(tokenMessenger, amount);
-        
+
         // bytes32 orderId -> 32 bytes
         // address Owner -> 20 bytes
         // Convert Token -> 20 bytes
