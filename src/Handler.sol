@@ -383,9 +383,22 @@ contract Handler is IHandler {
         }
     }
 
-    function executeCrossChainOrder() public {}
+    function executeCrossChainOrder(
+        bytes calldata message,
+        bytes calldata attestation,
+        address _solver,
+        IRouter.Route[] calldata route
+    ) public {
+        // Call Token Minter to get the USDC and store the hook Data
 
-    function handleCrossChainUSDC(address owner, address convert, uint16 platform, bool repay) external {}
+
+
+
+        // Request Tip
+    
+    }
+
+    function handleCrossChainUSDC(address _owner, address _convert, uint16 _platform, bool _repay) external {}
 
     function handleTransformation(address token, uint16 assetType, uint256 amount) internal returns (uint256) {
         if (assetType == 1) {
@@ -542,7 +555,7 @@ contract Handler is IHandler {
             crossChainData.destinationDomain,
             addressToBytes32(crossChainData.handler), // mintRecipient
             usdc,
-            addressToBytes32(crossChainData.factory),
+            addressToBytes32(crossChainData.handler),
             0,
             1000,
             hookData

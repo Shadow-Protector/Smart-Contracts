@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import {IHandler} from "./interfaces/IHandler.sol";
 import {IFactory, CrossChainData} from "./interfaces/IFactory.sol";
+import {IVault} from "./interfaces/IVault.sol";
 
 /// @title Vault Factory
 /// @author Shadow Protector, @parizval
@@ -147,6 +148,14 @@ contract VaultFactory is IFactory {
         IHandler(handler).executeCrossChainOrder(msg.sender, orderId, destinationChainId);
     }
 
+    function getTipForCrossChainOrder(bytes32 _orderId, address _owner, address _solver) external {
+        require(msg.sender == handler);
+
+        address vaultAddress = vaults[_owner];
+
+        IVault(vaultAddress).sendTipForCrossChainOrder(_orderId, _solver);
+    }
+
     function getDepositToken(address token, uint16 assetType) external view returns (address) {
         return IHandler(handler).getDepositToken(token, assetType);
     }
@@ -173,10 +182,8 @@ contract VaultFactory is IFactory {
         address _usdc,
         address _tokenMessenger,
         address _messageTransmitter,
-        address _factory,
         address _handler
     ) external OnlyOwner {
-        crossChainData[_chainId] =
-            CrossChainData(_usdc, _tokenMessenger, _messageTransmitter, _factory, _handler, _chainId);
+        crossChainData[_chainId] = CrossChainData(_usdc, _tokenMessenger, _messageTransmitter, _handler, _chainId);
     }
 }

@@ -30,4 +30,6 @@ interface IVault {
         returns (address _owner, OrderExecutionDetails memory order);
 
     function executeOrder(bytes32 _orderId, address _solver) external payable;
+
+    function sendTipForCrossChainOrder(bytes32 _orderId, address _solver) external;
 }

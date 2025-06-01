@@ -5,7 +5,6 @@ struct CrossChainData {
     address usdc;
     address tokenMessenger;
     address messageTransmitter;
-    address factory;
     address handler;
     uint32 destinationDomain;
 }
@@ -42,6 +41,8 @@ interface IFactory {
         uint16 _parameter,
         uint256 _conditionValue
     ) external view returns (bool);
+
+    function getTipForCrossChainOrder(bytes32 _orderId, address _owner, address _solver) external;
 
     function getHandler() external view returns (address);
 
