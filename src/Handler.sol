@@ -564,13 +564,15 @@ contract Handler is IHandler {
 
         // Approve Call to Token Messenger
         IERC20(usdc).approve(tokenMessenger, amount);
-
+        
+        // bytes32 orderId -> 32 bytes
         // address Owner -> 20 bytes
         // Convert Token -> 20 bytes
         // uint16 platform -> 2 bytes
         // bool repay -> 1 byte
         bytes memory callData = abi.encodeWithSignature(
-            "handleCrossChainUSDC(address owner, address convert, uint16 platform, bool repay)",
+            "handleCrossChainUSDC(bytes32 _orderId, address _vaultOwner, address _convert, uint16 _platform, bool _repay)",
+            _orderId,
             _owner,
             order.convert,
             order.platform,
