@@ -15,6 +15,7 @@ struct OrderDetails {
     // Order Tip Details
     address tipToken;
     uint256 tipAmount;
+    bool crossChainActive;
 }
 
 interface IVault {

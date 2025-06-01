@@ -13,6 +13,7 @@ import {IVault, OrderDetails, OrderExecutionDetails} from "./interfaces/IVault.s
 // 0: Cancel Order
 // 1: Execute Order with Supply
 // 2: Execute Order with Repay
+// 3: Send Tip to Solver for Cross-Chain Order
 
 /// @title Vault Deployer
 /// @author Shadow Protector, @parizval
@@ -38,8 +39,10 @@ contract Vault is IVault {
     error ConditionEvaluationFailed();
 
     error SenderNotMailbox(address caller);
+    error SenderNotFactory(address caller);
 
     error InvalidCrossChainSender(bytes32 sender);
+    error CrossChainConditionNotMet(bytes32 orderId);
     error NotHandler(address handler, address sender);
     error NotSufficientOrderCreationFee(uint256 currentBalance, uint256 platformFee);
 
@@ -86,7 +89,12 @@ contract Vault is IVault {
         }
 
         // Store the order in the mapping
-        orders[orderId] = OrderDetails({conditionValue: conditionValue, tipToken: tipToken, tipAmount: tipAmount});
+        orders[orderId] = OrderDetails({
+            conditionValue: conditionValue,
+            tipToken: tipToken,
+            tipAmount: tipAmount,
+            crossChainActive: false
+        });
 
         // Transfer the tip amount from the sender to the contract
         IERC20(tipToken).transferFrom(msg.sender, address(this), tipAmount);
@@ -183,6 +191,8 @@ contract Vault is IVault {
             // Deleting the order condition details
             delete orders[orderId];
         } else {
+            // Ensure the cross-chain order condition was met
+            orders[orderId].crossChainActive = true;
             // Broadcast Execute Oder to External Chain
             sendMessageToDestinationChain(chainId, orderId, 1);
         }
@@ -224,6 +234,23 @@ contract Vault is IVault {
 
     function cancelAssetDeposit(bytes32 _orderId) external OnlyOwner {
         _cancelAssetDeposit(_orderId);
+    }
+
+    function sendTipForCrossChainOrder(bytes32 _orderId, address _solver) external {
+        if (msg.sender != factoryContract) {
+            revert SenderNotFactory(msg.sender);
+        }
+
+        // Ensure the order ID is valid
+        OrderDetails memory order = orders[_orderId];
+
+        if (!order.crossChainActive) {
+            revert CrossChainConditionNotMet(_orderId);
+        }
+
+        IERC20(order.tipToken).transfer(_solver, order.tipAmount);
+
+        delete orders[_orderId];
     }
 
     function _cancelAssetDeposit(bytes32 _orderId) internal {
