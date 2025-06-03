@@ -120,7 +120,7 @@ contract Vault is IVault {
             revert InvalidOrderId(_orderId);
         }
 
-        (,,, uint32 destinationChainId,) = this.decodeKey(abi.encodePacked(_orderId));
+        (,,, uint32 destinationChainId) = this.decodeKey(abi.encodePacked(_orderId));
 
         // Transfer the tip amount back to the sender
         IERC20(order.tipToken).transfer(msg.sender, order.tipAmount);
@@ -153,7 +153,7 @@ contract Vault is IVault {
             revert NotHandler(handler, msg.sender);
         }
 
-        (uint16 platform, address platformAddress, uint16 parameter, uint32 destinationChainId,) =
+        (uint16 platform, address platformAddress, uint16 parameter, uint32 destinationChainId) =
             this.decodeKey(abi.encodePacked(_orderId));
 
         // Ensure the order ID is valid

@@ -332,7 +332,7 @@ contract Handler is IHandler {
         payable
     {
         // get params of the order
-        (,,, uint32 destinationChainId,) = IVault(vault).decodeKey(abi.encodePacked(_orderId));
+        (,,, uint32 destinationChainId) = IVault(vault).decodeKey(abi.encodePacked(_orderId));
 
         // get Order details
         (address _owner, OrderExecutionDetails memory order) = IVault(vault).getOrderExecutionDetails(_orderId);

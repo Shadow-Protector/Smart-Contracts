@@ -82,13 +82,8 @@ contract VaultTest is Test {
 
         console.logBytes32(orderId);
 
-        (
-            uint16 check_platform,
-            address check_conditionAddress,
-            uint16 check_parameter,
-            uint32 check_destinationChainId,
-            uint32 check_salt
-        ) = Vault(vault).decodeKey(abi.encodePacked(orderId));
+        (uint16 check_platform, address check_conditionAddress, uint16 check_parameter, uint32 check_destinationChainId)
+        = Vault(vault).decodeKey(abi.encodePacked(orderId));
 
         console.log("Plaform", platform, check_platform);
         assert(platform == check_platform);
@@ -102,7 +97,7 @@ contract VaultTest is Test {
         console.log("ChainId", destinationChainId, check_destinationChainId);
         assert(destinationChainId == check_destinationChainId);
 
-        console.log("Salt", salt, check_salt);
-        assert(salt == check_salt);
+        // console.log("Salt", salt, check_salt);
+        // assert(salt == check_salt);
     }
 }
