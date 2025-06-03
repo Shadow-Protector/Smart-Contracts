@@ -45,7 +45,7 @@ contract VaultFactory is IFactory {
 
     event UpdatedHandler(address indexed newConditionEvaluator, address oldConditionEvaluator);
 
-    event CrossChainHook(bytes32 orderId);
+    event CrossChainHook(address vault, bytes32 orderId, uint32 destinationChainId);
 
     // Errors
     error NotOwner(address sender, address owner);
@@ -134,10 +134,10 @@ contract VaultFactory is IFactory {
         emit CancelDeposit(msg.sender, _orderId);
     }
 
-    function emitCrossChainHook(bytes32 orderId) external {
+    function emitCrossChainHook(address vault, bytes32 orderId, uint32 destinationChainId) external {
         assert(msg.sender == handler);
 
-        emit CrossChainHook(orderId);
+        emit CrossChainHook(vault, orderId, destinationChainId);
     }
 
     function checkCondition(
