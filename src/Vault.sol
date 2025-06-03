@@ -358,7 +358,7 @@ contract Vault is IVault {
     function decodeKey(bytes calldata orderId)
         public
         pure
-        returns (uint16 platform, address conditionAddress, uint16 parameter, uint32 destinationChainId, uint32 salt)
+        returns (uint16 platform, address conditionAddress, uint16 parameter, uint32 destinationChainId)
     {
         require(orderId.length == 32, "Expected exactly 32 bytes");
 
@@ -367,16 +367,13 @@ contract Vault is IVault {
             platform := shr(240, calldataload(orderId.offset)) // shift right by 30 bytes
 
             // conditionAddress: address at offset 2 (20 bytes)
-            conditionAddress := shr(96, calldataload(add(orderId.offset, 2))) // shift right by 12 bytes
+            conditionAddress := shr(96, calldataload(add(orderId.offset, 2))) // shift right by bytes
 
-            // parameter: uint16 at offset 22
-            parameter := shr(240, calldataload(add(orderId.offset, 22)))
+            // parameter: uint16 at offset 22 (2 bytes)
+            parameter := shr(240, calldataload(add(orderId.offset, 22))) // shift right by 30 bytes
 
-            // destinationChainId: uint32 at offset 24
+            // destinationChainId: uint32 (4 bytes) at offset 24
             destinationChainId := shr(224, calldataload(add(orderId.offset, 24))) // shift right by 28 bytes
-
-            // salt: uint32 at offset 28
-            salt := shr(224, calldataload(add(orderId.offset, 28)))
         }
     }
 

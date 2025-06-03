@@ -82,7 +82,7 @@ contract Handler is IHandler {
     error InvalidRouteLength(uint256 routeLength, uint8 requiredRouteLength);
     error InvalidStartToken(address requiredToken, address startToken);
     error InvalidEndToken(address requiredToken, address endToken);
-    error InvalidMorphoVault(address vaultId);
+    error InvalidMorphoVault(uint16 vaultId);
     error BaseTokenNotUSDC(address token, address usdc);
     error SenderNotMessageTransmitter(address sender, address messageTransmitter);
 
@@ -485,7 +485,7 @@ contract Handler is IHandler {
         if (_platform >= 2 && _platform <= 1002) {
             address vaultAddress = morphoVaults[convertToDepositAddress(_platform)];
             if (vaultAddress == address(0)) {
-                revert InvalidMorphoVault(convertToDepositAddress(_platform));
+                revert InvalidMorphoVault(_platform);
             } else {
                 address confirmAsset = IMetaMorpho(vaultAddress).asset();
 

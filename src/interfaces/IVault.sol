@@ -22,7 +22,7 @@ interface IVault {
     function decodeKey(bytes calldata orderId)
         external
         pure
-        returns (uint16 platform, address conditionAddress, uint16 parameter, uint32 destinationChainId, uint32 salt);
+        returns (uint16 platform, address conditionAddress, uint16 parameter, uint32 destinationChainId);
 
     function getOrderExecutionDetails(bytes32 orderId)
         external
