@@ -1,6 +1,6 @@
 # Shadow Protector Smart Contracts 
 
-Building new form of DeFi Actions.
+Building Interoperable DeFi
 
 ## Foundry
 
