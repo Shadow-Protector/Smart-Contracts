@@ -356,7 +356,7 @@ contract Handler is IHandler {
 
             // Deposit or Repay
             handleDeposit(order.convert, amount, _owner, order.platform, order.repay);
-        }else{
+        } else {
             crossChainOrders[_orderId] = _solver;
         }
     }
@@ -393,8 +393,8 @@ contract Handler is IHandler {
         }
 
         address storedSolver = crossChainOrders[orderId];
-        if(storedSolver != _solver){
-            storedSolver = owner; 
+        if (storedSolver != _solver) {
+            storedSolver = owner;
         }
 
         uint256 amount = IERC20(usdc).balanceOf(address(this));
