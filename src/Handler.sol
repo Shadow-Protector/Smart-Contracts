@@ -67,6 +67,7 @@ contract Handler is IHandler {
     mapping(address => bytes32) public morphoMarket;
     mapping(address => address) public morphoVaults;
     mapping(address => address) public eulerDepositVaults;
+    mapping(bytes32 => address) private crossChainOrders;
 
     // Events
     event UpdatedOwner(address oldOwner, address newOwner);
@@ -76,6 +77,7 @@ contract Handler is IHandler {
 
     // Errors
     error NotOwner(address sender, address owner);
+    error MorphoMarketNotFound(address marketKey);
     error InvalidRoute();
     error InvalidRouteLength(uint256 routeLength, uint8 requiredRouteLength);
     error InvalidStartToken(address requiredToken, address startToken);
@@ -289,7 +291,7 @@ contract Handler is IHandler {
     {
         bytes32 marketId = morphoMarket[_market];
         if (marketId == bytes32(0)) {
-            return false;
+            revert MorphoMarketNotFound(_market);
         }
 
         MarketParams memory market = morphoPool.idToMarketParams(Id.wrap(marketId));
@@ -354,6 +356,8 @@ contract Handler is IHandler {
 
             // Deposit or Repay
             handleDeposit(order.convert, amount, _owner, order.platform, order.repay);
+        }else{
+            crossChainOrders[_orderId] = _solver;
         }
     }
 
@@ -388,6 +392,11 @@ contract Handler is IHandler {
             repay := tload(0x05)
         }
 
+        address storedSolver = crossChainOrders[orderId];
+        if(storedSolver != _solver){
+            storedSolver = owner; 
+        }
+
         uint256 amount = IERC20(usdc).balanceOf(address(this));
 
         // Executing Operation
@@ -400,7 +409,9 @@ contract Handler is IHandler {
         handleDeposit(convertToken, amount, owner, platform, repay);
 
         // Request Tip After Order Execution
-        IFactory(factory).getTipForCrossChainOrder(orderId, owner, _solver);
+        IFactory(factory).getTipForCrossChainOrder(orderId, owner, storedSolver);
+
+        delete crossChainOrders[orderId];
     }
 
     function handleCrossChainUSDC(
