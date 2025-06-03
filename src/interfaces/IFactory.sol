@@ -34,6 +34,8 @@ interface IFactory {
 
     function emitCancelDeposit(address _vaultOwner, bytes32 _orderId) external;
 
+    function emitCrossChainHook(bytes32 orderId) external;
+
     function checkCondition(
         uint16 _platform,
         address _platformAddress,

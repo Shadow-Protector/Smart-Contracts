@@ -603,6 +603,8 @@ contract Handler is IHandler {
             1000,
             hookData
         );
+
+        IFactory(factory).emitCrossChainHook(_orderId);
     }
 
     function _getDepositToken(address token, uint16 assetType) internal view returns (address) {
