@@ -1,6 +1,6 @@
 # Shadow Protector Smart Contracts 
 
-Building Interoperable DeFi
+Pushing DeFi towards Interoperability
 
 ## Foundry
 
