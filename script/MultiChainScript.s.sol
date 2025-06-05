@@ -137,7 +137,6 @@ contract DeployScript is Script {
     }
 
     function simulationScript() public {
-
         uint256 baseSepoliaFork = vm.createFork(vm.rpcUrl("base_sepolia"));
 
         uint256 ethSepoliaFork = vm.createFork(vm.rpcUrl("eth_sepolia"));
