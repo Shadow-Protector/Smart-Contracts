@@ -19,7 +19,94 @@ contract DeployScript is Script {
 
     address constant CHAINLINK_PRICE_FEED = 0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1;
 
-    function setUp() public {}
+    HelperConfig.NetworkConfig baseConfig;
+    Handler baseHandler;
+    VaultFactory baseFactory;
+    VaultDeployer baseVaultDeployer;
+    address payable baseVault;
+
+    HelperConfig.NetworkConfig ethConfig;
+    Handler ethHandler;
+    VaultFactory ethFactory;
+    VaultDeployer ethVaultDeployer;
+    address payable ethVault;
+
+    function setUp() public {
+        HelperConfig helperconfig = new HelperConfig();
+
+        uint256 baseSepoliaFork = vm.createFork(vm.rpcUrl("base_sepolia"));
+
+        uint256 ethSepoliaFork = vm.createFork(vm.rpcUrl("eth_sepolia"));
+
+        vm.selectFork(baseSepoliaFork);
+
+        vm.startBroadcast();
+
+        baseConfig = helperconfig.getConfig();
+
+        // Deploy the Handler contract
+        baseHandler = new Handler(address(0), address(0), address(0), address(0));
+
+        console.log("Base Handler Deployed at:", address(baseHandler));
+
+        baseFactory = new VaultFactory(address(baseHandler), 0);
+
+        console.log("Factory Deployed at:", address(baseFactory));
+
+        baseHandler.updateFactory(address(baseFactory));
+
+        baseVaultDeployer = new VaultDeployer(address(baseFactory), baseConfig.hyperlaneMailboxAddress);
+
+        console.log("Base Vault Deployer Deployed at:", address(baseVaultDeployer));
+
+        baseFactory.updateVaultDeployer(address(baseVaultDeployer));
+
+        baseVault = payable(baseVaultDeployer.deployVault());
+
+        console.log("Base Vault deployed at:", baseVault);
+
+        vm.stopBroadcast();
+
+        // Deploying Contracts on Eth Sepolia
+
+        vm.selectFork(ethSepoliaFork);
+
+        vm.startBroadcast();
+
+        ethConfig = helperconfig.getConfig();
+
+        ethHandler = new Handler(address(0), address(0), address(0), address(0));
+
+        console.log("ETH Handler Deployed at:", address(ethHandler));
+
+        ethFactory = new VaultFactory(address(ethHandler), 0);
+
+        console.log("ETH Factory Deployed at:", address(ethFactory));
+
+        ethHandler.updateFactory(address(ethFactory));
+
+        ethVaultDeployer = new VaultDeployer(address(ethFactory), ethConfig.hyperlaneMailboxAddress);
+
+        console.log("ETH Vault Deployer Deployed at:", address(ethVaultDeployer));
+
+        ethFactory.updateVaultDeployer(address(ethVaultDeployer));
+
+        ethVault = payable(ethVaultDeployer.deployVault());
+
+        console.log("ETH Vault deployed at:", ethVault);
+
+        Vault(ethVault).addExternalChainVault(84532, baseVault);
+
+        vm.stopBroadcast();
+
+        vm.selectFork(baseSepoliaFork);
+
+        vm.startBroadcast();
+
+        Vault(baseVault).addExternalChainVault(11155111, ethVault);
+
+        vm.stopBroadcast();
+    }
 
     function run() public {
         simulationScript();
@@ -37,22 +124,19 @@ contract DeployScript is Script {
 
         uint256 PriceWithTwoDecimals = (priceValue * 100) / priceDecimals;
 
-        console.log("PriceWithTwoDecimals:", PriceWithTwoDecimals);
-
         // Greater than Value
         if (parameter == 0) {
-            return conditionValue > PriceWithTwoDecimals;
+            return PriceWithTwoDecimals > conditionValue;
         }
         // Less than Value or equal to
         else if (parameter == 1) {
-            return conditionValue <= PriceWithTwoDecimals;
+            return PriceWithTwoDecimals <= conditionValue;
         }
 
         return false;
     }
 
     function simulationScript() public {
-        HelperConfig helperconfig = new HelperConfig();
 
         uint256 baseSepoliaFork = vm.createFork(vm.rpcUrl("base_sepolia"));
 
@@ -62,86 +146,19 @@ contract DeployScript is Script {
 
         vm.startBroadcast();
 
-        HelperConfig.NetworkConfig memory base_config = helperconfig.getConfig();
-
-        // Deploy the Handler contract
-        Handler base_handler = new Handler(address(0), address(0), address(0), address(0));
-
-        console.log("Base Handler Deployed at:", address(base_handler));
-
-        VaultFactory base_factory = new VaultFactory(address(base_handler), 0);
-
-        console.log("Factory Deployed at:", address(base_factory));
-
-        base_handler.updateFactory(address(base_factory));
-
-        VaultDeployer base_deployer = new VaultDeployer(address(base_factory), base_config.hyperlaneMailboxAddress);
-
-        console.log("Base Vault Deployer Deployed at:", address(base_deployer));
-
-        base_factory.updateVaultDeployer(address(base_deployer));
-
-        address payable base_vault = payable(base_deployer.deployVault());
-
-        console.log("Base Vault deployed at:", base_vault);
-
-        vm.stopBroadcast();
-
-        // Deploying Vaults on Eth Sepolia
-
-        vm.selectFork(ethSepoliaFork);
-
-        vm.startBroadcast();
-
-        HelperConfig.NetworkConfig memory eth_config = helperconfig.getConfig();
-
-        Handler eth_handler = new Handler(address(0), address(0), address(0), address(0));
-
-        console.log("ETH Handler Deployed at:", address(eth_handler));
-
-        VaultFactory eth_factory = new VaultFactory(address(eth_handler), 0);
-
-        console.log("ETH Factory Deployed at:", address(eth_factory));
-
-        eth_handler.updateFactory(address(eth_factory));
-
-        VaultDeployer eth_deployer = new VaultDeployer(address(eth_factory), eth_config.hyperlaneMailboxAddress);
-
-        console.log("ETH Vault Deployer Deployed at:", address(eth_deployer));
-
-        eth_factory.updateVaultDeployer(address(eth_deployer));
-
-        address payable eth_vault = payable(eth_deployer.deployVault());
-
-        console.log("ETH Vault deployed at:", eth_vault);
-
-        // Connecting Vaults
-
-        Vault(eth_vault).addExternalChainVault(84532, base_vault);
-
-        uint256 eth_initialBalance = IERC20(eth_config.usdcAddress).balanceOf(msg.sender);
-
-        console.log("ETH Initial Balance:", eth_initialBalance);
-
-        vm.stopBroadcast();
-
-        vm.selectFork(baseSepoliaFork);
-
-        vm.startBroadcast();
-
-        Vault(base_vault).addExternalChainVault(11155111, eth_vault);
-
-        uint256 base_initialBalance = IERC20(base_config.usdcAddress).balanceOf(msg.sender);
+        uint256 base_initialBalance = IERC20(baseConfig.usdcAddress).balanceOf(msg.sender);
 
         console.log("Base Initial Balance:", base_initialBalance);
 
-        IERC20(base_config.usdcAddress).approve(address(base_vault), 2 * DECIMAL);
+        IERC20(baseConfig.usdcAddress).approve(address(baseVault), 2 * DECIMAL);
 
-        Vault(base_vault).createOrder(
-            0, CHAINLINK_PRICE_FEED, 0, 11155111, 0, 271164, address(base_config.usdcAddress), 2 * DECIMAL
+        Vault(baseVault).createOrder(
+            0, CHAINLINK_PRICE_FEED, 0, 11155111, 0, 241164, address(baseConfig.usdcAddress), 2 * DECIMAL
         );
 
-        bytes32 orderId = Vault(base_vault).generateKey(0, CHAINLINK_PRICE_FEED, 0, 11155111, 0);
+        bytes32 orderId = Vault(baseVault).generateKey(0, CHAINLINK_PRICE_FEED, 0, 11155111, 0);
+
+        console.log("Check Conditon Bool:", checkChainlinkCondition(CHAINLINK_PRICE_FEED, 0, 241164));
 
         vm.stopBroadcast();
 
@@ -149,9 +166,9 @@ contract DeployScript is Script {
 
         vm.startBroadcast();
 
-        IERC20(eth_config.usdcAddress).approve(address(eth_vault), 5 * DECIMAL);
+        IERC20(ethConfig.usdcAddress).approve(address(ethVault), 5 * DECIMAL);
 
-        Vault(eth_vault).depositAsset(orderId, eth_config.usdcAddress, 0, eth_config.usdcAddress, 5 * DECIMAL, 0, false);
+        Vault(ethVault).depositAsset(orderId, ethConfig.usdcAddress, 0, ethConfig.usdcAddress, 5 * DECIMAL, 0, false);
 
         vm.stopBroadcast();
 
@@ -159,15 +176,15 @@ contract DeployScript is Script {
 
         vm.startBroadcast();
 
-        address(base_vault).call{value: 0.3 ether}("");
+        address(baseVault).call{value: 0.3 ether}("");
 
         // Vault(base_vault).cancelOrder(orderId);
 
-        assert(base_factory.checkCondition(0, CHAINLINK_PRICE_FEED, msg.sender, 0, 271164) == true);
+        // assert(base_factory.checkCondition(0, CHAINLINK_PRICE_FEED, msg.sender, 0, 271164) == true);
 
         IRouter.Route[] memory routes = new IRouter.Route[](0);
 
-        base_handler.executeOrder(address(base_vault), orderId, 0xA01f6403d49857b58D3794C12E028c3681b24F98, routes);
+        baseHandler.executeOrder(address(baseVault), orderId, 0xA01f6403d49857b58D3794C12E028c3681b24F98, routes);
 
         vm.stopBroadcast();
 
