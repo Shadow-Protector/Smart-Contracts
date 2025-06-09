@@ -11,6 +11,7 @@ import {IActionHandler} from "../interfaces/IActionHandler.sol";
 /// @author Shadow Protector, @parizval
 /// @notice Handles all the logic for Aave Protocol Integration
 contract AaveHandler is IActionHandler {
+    // Storage
     IAavePool public immutable aavePool;
     IPriceOracleGetter public immutable aavePriceGetter;
 
@@ -40,6 +41,10 @@ contract AaveHandler is IActionHandler {
         owner = _newOwner;
     }
 
+    function rescueFunds(address _token, uint256 _amount) external OnlyOwner {
+        IERC20(_token).transfer(owner, _amount);
+    }
+
     function evaluateCondition(
         uint16 _platform,
         address _platformAddress,
@@ -66,11 +71,11 @@ contract AaveHandler is IActionHandler {
         }
     }
 
-    function unWindPosition(address token, uint16, uint256 amount, address handler) external returns (uint256){
+    function unWindPosition(address token, uint16, uint256 amount, address handler) external returns (uint256) {
         return aavePool.withdraw(token, amount, handler);
     }
 
-    function handleDeposit(address token, uint256 amount, address _owner, bool repay) external {
+    function handleDeposit(address token, uint256 amount, address _owner, bool repay, uint16) external {
         if (repay) {
             // Repay Function
             address variableDebtToken = aavePool.getReserveVariableDebtToken(token);
