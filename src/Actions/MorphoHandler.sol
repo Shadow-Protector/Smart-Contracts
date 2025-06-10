@@ -6,10 +6,11 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {IOracle} from "../interfaces/morpho/IMorphoOracle.sol";
 import {IMorpho, MarketParams, Id, Position, Market} from "../../src/interfaces/morpho/IMorpho.sol";
 import {IMetaMorpho} from "../interfaces/morpho/IMetaMorpho.sol";
+import {IIrm} from "../interfaces/morpho/IIrm.sol";
 
 import {MathLib, WAD} from "../lib/MathLib.sol";
 import {SharesMathLib} from "../lib/SharesMathLib.sol";
-
+import {UtilsLib} from "../lib/UtilsLib.sol";
 import {IActionHandler} from "../interfaces/IActionHandler.sol";
 
 // TODO: Add Logic to Update Stale MarketData
@@ -20,6 +21,9 @@ import {IActionHandler} from "../interfaces/IActionHandler.sol";
 contract MorphoHandler is IActionHandler {
     using MathLib for uint256;
     using SharesMathLib for uint256;
+    using UtilsLib for uint256;
+
+    using MathLib for uint128;
 
     // Storage
     address public owner;
@@ -93,6 +97,25 @@ contract MorphoHandler is IActionHandler {
 
         Market memory marketData = morphoPool.market(Id.wrap(marketId));
 
+        uint256 elapsed = block.timestamp - marketData.lastUpdate;
+
+        // Skipped if elapsed == 0 or totalBorrowAssets == 0 because interest would be null, or if irm == address(0).
+        if (elapsed != 0 && marketData.totalBorrowAssets != 0 && market.irm != address(0)) {
+            uint256 borrowRate = IIrm(market.irm).borrowRateView(market, marketData);
+            uint256 interest = marketData.totalBorrowAssets.wMulDown(borrowRate.wTaylorCompounded(elapsed));
+            marketData.totalBorrowAssets += interest.toUint128();
+            marketData.totalSupplyAssets += interest.toUint128();
+
+            if (marketData.fee != 0) {
+                uint256 feeAmount = interest.wMulDown(marketData.fee);
+                // The fee amount is subtracted from the total supply in this calculation to compensate for the fact
+                // that total supply is already updated.
+                uint256 feeShares =
+                    feeAmount.toSharesDown(marketData.totalSupplyAssets - feeAmount, marketData.totalSupplyShares);
+                marketData.totalSupplyShares += feeShares.toUint128();
+            }
+        }
+
         uint8 decimals = 34 + IERC20(market.loanToken).decimals() - IERC20(market.collateralToken).decimals();
 
         price = price / 10 ** decimals;
@@ -157,6 +180,27 @@ contract MorphoHandler is IActionHandler {
                     Position memory position = morphoPool.position(Id.wrap(marketId), _owner);
 
                     Market memory marketData = morphoPool.market(Id.wrap(marketId));
+
+                    // Updating Market Data
+                    uint256 elapsed = block.timestamp - marketData.lastUpdate;
+
+                    // Skipped if elapsed == 0 or totalBorrowAssets == 0 because interest would be null, or if irm == address(0).
+                    if (elapsed != 0 && marketData.totalBorrowAssets != 0 && market.irm != address(0)) {
+                        uint256 borrowRate = IIrm(market.irm).borrowRateView(market, marketData);
+                        uint256 interest = marketData.totalBorrowAssets.wMulDown(borrowRate.wTaylorCompounded(elapsed));
+                        marketData.totalBorrowAssets += interest.toUint128();
+                        marketData.totalSupplyAssets += interest.toUint128();
+
+                        if (marketData.fee != 0) {
+                            uint256 feeAmount = interest.wMulDown(marketData.fee);
+                            // The fee amount is subtracted from the total supply in this calculation to compensate for the fact
+                            // that total supply is already updated.
+                            uint256 feeShares = feeAmount.toSharesDown(
+                                marketData.totalSupplyAssets - feeAmount, marketData.totalSupplyShares
+                            );
+                            marketData.totalSupplyShares += feeShares.toUint128();
+                        }
+                    }
 
                     uint256 borrowed = uint256(position.borrowShares).toAssetsUp(
                         marketData.totalBorrowAssets, marketData.totalBorrowShares
