@@ -29,7 +29,7 @@ interface IFactory {
 
     function emitCancelOrder(address _vaultOwner, bytes32 OrderId) external;
 
-    function emitDepositEvent(address _vaultOwner, bytes32 _orderId, address depositToken, address convertToken)
+    function emitDepositEvent(address _vaultOwner, bytes32 _orderId, address _baseToken, address _outputToken)
         external;
 
     function emitCancelDeposit(address _vaultOwner, bytes32 _orderId) external;
