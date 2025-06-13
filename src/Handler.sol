@@ -4,23 +4,15 @@ pragma solidity ^0.8.26;
 import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {AggregatorV3Interface} from "foundry-chainlink-toolkit/src/interfaces/feeds/AggregatorV3Interface.sol";
 
-import {IAavePool} from "./interfaces/aave/IAavePool.sol";
-import {IPriceOracleGetter} from "./interfaces/aave/IAavePriceGetter.sol";
-
 import {ICCTP} from "./interfaces/circle/ICCTP.sol";
 import {IMessageTransmitter} from "./interfaces/circle/IMessageTransmitter.sol";
-import {IOracle} from "./interfaces/morpho/IMorphoOracle.sol";
-import {IMorpho, MarketParams, Id, Position, Market} from "../src/interfaces/morpho/IMorpho.sol";
-import {IMetaMorpho} from "./interfaces/morpho/IMetaMorpho.sol";
-
-import {MathLib, WAD} from "./lib/MathLib.sol";
-import {SharesMathLib} from "./lib/SharesMathLib.sol";
 
 import {IRouter} from "./interfaces/aerodrome/IRouter.sol";
 
 import {IVault, OrderExecutionDetails} from "./interfaces/IVault.sol";
 import {IFactory, CrossChainData} from "./interfaces/IFactory.sol";
 import {IHandler} from "./interfaces/IHandler.sol";
+import {IActionHandler} from "./interfaces/IActionHandler.sol";
 
 // Condition parameters (32 bytes)
 // -> (platform type) (type = number)
@@ -48,49 +40,41 @@ import {IHandler} from "./interfaces/IHandler.sol";
 /// @author Shadow Protector, @parizval
 /// @notice Handler Contract evaluates order conditon, interacts with Solvers for executing orders, swapping tokens, supplying or repaying assets to Aave, Morpho or User.
 contract Handler is IHandler {
-    using MathLib for uint256;
-    using SharesMathLib for uint256;
-
     address public owner;
     address public factory;
-    IAavePool public immutable aavePool;
-    IPriceOracleGetter public immutable aavePriceGetter;
     uint8 public routeLength = 1;
-    IMorpho public immutable morphoPool;
 
     // Aerodrome Router
     IRouter public immutable aerodromeRouter;
 
-    address public immutable eulerPool;
-
     // Mappings
-    mapping(address => bytes32) public morphoMarket;
-    mapping(address => address) public morphoVaults;
-    mapping(address => address) public eulerDepositVaults;
+
+    // Platform Id => Condition Evaulation Address
+    mapping(uint16 => address) public conditionPlatforms;
+
+    // Platform Id => Action Platform Address
+    mapping(uint16 => address) public actions;
+
+    // OrderId => Solver Payout Address
     mapping(bytes32 => address) private crossChainOrders;
 
     // Events
     event UpdatedOwner(address oldOwner, address newOwner);
-
-    event MorphoMarketAdded(address market, bytes32 id);
-    event MorphoVaultAdded(address vault, address vaultId);
+    event ConditionPlatformAdded(uint16 platformId, address platformAddress);
+    event ActionPlatformAdded(uint16 platformId, address platformAddress);
 
     // Errors
     error NotOwner(address sender, address owner);
-    error MorphoMarketNotFound(address marketKey);
+    error ActionAddressNotFound(uint16 assetType);
     error InvalidRoute();
     error InvalidRouteLength(uint256 routeLength, uint8 requiredRouteLength);
     error InvalidStartToken(address requiredToken, address startToken);
     error InvalidEndToken(address requiredToken, address endToken);
-    error InvalidMorphoVault(uint16 vaultId);
     error BaseTokenNotUSDC(address token, address usdc);
     error SenderNotMessageTransmitter(address sender, address messageTransmitter);
 
-    constructor(address _aavePool, address _aavePriceGetter, address _morphoPool, address _aerodromeRouter) {
+    constructor(address _aerodromeRouter) {
         owner = msg.sender;
-        aavePool = IAavePool(_aavePool);
-        aavePriceGetter = IPriceOracleGetter(_aavePriceGetter);
-        morphoPool = IMorpho(_morphoPool);
         aerodromeRouter = IRouter(_aerodromeRouter);
     }
 
@@ -114,14 +98,14 @@ contract Handler is IHandler {
         routeLength = _routeLength;
     }
 
-    function addMorphoMarket(address _market, bytes32 _marketId) external OnlyOwner {
-        morphoMarket[_market] = _marketId;
-        emit MorphoMarketAdded(_market, _marketId);
+    function addConditionPlatform(uint16 platformId, address platformAddress) external OnlyOwner {
+        conditionPlatforms[platformId] = platformAddress;
+        emit ConditionPlatformAdded(platformId, platformAddress);
     }
 
-    function addMorphoVault(address _vaultId, address _vaultAddress) external OnlyOwner {
-        morphoVaults[_vaultId] = _vaultAddress;
-        emit MorphoVaultAdded(_vaultId, _vaultAddress);
+    function addActionPlatform(uint16 platformId, address actionPlatformAddress) external OnlyOwner {
+        actions[platformId] = actionPlatformAddress;
+        emit ActionPlatformAdded(platformId, actionPlatformAddress);
     }
 
     function rescueFunds(address _token, uint256 _amount) external OnlyOwner {
@@ -137,16 +121,11 @@ contract Handler is IHandler {
     ) public view returns (bool) {
         if (_platform == 0) {
             return checkChainlinkCondition(_platformAddress, _parameter, _conditionValue);
-        } else if (_platform == 1) {
-            return checkAavePortfioCondition(_borrower, _parameter, _conditionValue);
-        } else if (_platform == 2) {
-            return checkAaveCollateralCondition(_platformAddress, _borrower, _parameter, _conditionValue);
-        } else if (_platform == 3) {
-            return checkAaveDebtCondition(_platformAddress, _borrower, _parameter, _conditionValue);
-        } else if (_platform == 4) {
-            return checkMorphoCondition(_platformAddress, _borrower, _parameter, _conditionValue);
         } else {
-            return false;
+            address platformAddressContract = conditionPlatforms[_platform];
+            return IActionHandler(platformAddressContract).evaluateCondition(
+                _platform, _platformAddress, _borrower, _parameter, _conditionValue
+            );
         }
     }
 
@@ -178,155 +157,6 @@ contract Handler is IHandler {
         return false;
     }
 
-    function checkAavePortfioCondition(address _borrower, uint16 _parameter, uint256 conditionValue)
-        public
-        view
-        returns (bool)
-    {
-        // Overall Portfolio Value
-        (uint256 totalCollateralBase, uint256 totalDebtBase,,,, uint256 healthFactor) =
-            aavePool.getUserAccountData(_borrower);
-
-        // Check paramter is greater than totalCollateralBase
-        if (_parameter == 0) {
-            return totalCollateralBase > conditionValue;
-        } // Check paramter is less or equal to totalCollateralBase
-        else if (_parameter == 1) {
-            return totalCollateralBase <= conditionValue;
-        } // Check paramter is greater than totalDebtBase
-        else if (_parameter == 2) {
-            return totalDebtBase > conditionValue;
-        } // Check paramter is less or equal to totalDebtBase
-        else if (_parameter == 3) {
-            return totalDebtBase <= conditionValue;
-        } // Check parameter is greater than healthFactor
-        else if (_parameter == 4) {
-            return healthFactor > conditionValue;
-        } // Check paramter is less or equal to healthFactor
-        else if (_parameter == 5) {
-            return healthFactor <= conditionValue;
-        }
-
-        return false;
-    }
-
-    function checkAaveDebtCondition(address _asset, address _borrower, uint16 _parameter, uint256 conditionValue)
-        public
-        view
-        returns (bool)
-    {
-        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
-        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
-
-        address variableDebtToken = aavePool.getReserveVariableDebtToken(_asset);
-
-        uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_borrower);
-
-        uint256 debtBalanceInBaseCurrency = (debtBalance * assetPrice) / assetUnit;
-
-        // Greater than asset Price
-        if (_parameter == 0) {
-            return assetPrice > conditionValue;
-        } // Less than or equal to asset Price
-        else if (_parameter == 1) {
-            return assetPrice <= conditionValue;
-        } // Greater than debt balance
-        else if (_parameter == 2) {
-            return debtBalance > conditionValue;
-        } // Less than or equal to debt balance
-        else if (_parameter == 3) {
-            return debtBalance <= conditionValue;
-        } // Greater than debt balance in base currency
-        else if (_parameter == 4) {
-            return debtBalanceInBaseCurrency > conditionValue;
-        } // Less than or equal to debt balance in base currency
-        else if (_parameter == 5) {
-            return debtBalanceInBaseCurrency <= conditionValue;
-        }
-
-        return false;
-    }
-
-    function checkAaveCollateralCondition(address _asset, address _borrower, uint16 _parameter, uint256 conditionValue)
-        public
-        view
-        returns (bool)
-    {
-        uint256 assetUnit = 10 ** IERC20(_asset).decimals();
-        uint256 assetPrice = aavePriceGetter.getAssetPrice(_asset);
-
-        address aToken = aavePool.getReserveAToken(_asset);
-
-        uint256 collateralBalance = IERC20(aToken).balanceOf(_borrower);
-
-        uint256 collateralBalanceInBaseCurrency = (collateralBalance * assetPrice) / assetUnit;
-
-        // Greater than asset Price
-        if (_parameter == 0) {
-            return assetPrice > conditionValue;
-        } // Less than or equal to asset Price
-        else if (_parameter == 1) {
-            return assetPrice <= conditionValue;
-        } // Greater than debt balance
-        else if (_parameter == 2) {
-            return collateralBalance > conditionValue;
-        } // Less than or equal to debt balance
-        else if (_parameter == 3) {
-            return collateralBalance <= conditionValue;
-        } // Greater than debt balance in base currency
-        else if (_parameter == 4) {
-            return collateralBalanceInBaseCurrency > conditionValue;
-        } // Less than or equal to debt balance in base currency
-        else if (_parameter == 5) {
-            return collateralBalanceInBaseCurrency <= conditionValue;
-        }
-
-        return false;
-    }
-
-    function checkMorphoCondition(address _market, address _borrower, uint16 _parameter, uint256 conditionValue)
-        public
-        view
-        returns (bool)
-    {
-        bytes32 marketId = morphoMarket[_market];
-        if (marketId == bytes32(0)) {
-            revert MorphoMarketNotFound(_market);
-        }
-
-        MarketParams memory market = morphoPool.idToMarketParams(Id.wrap(marketId));
-
-        IOracle oracle = IOracle(market.oracle);
-
-        uint256 price = oracle.price();
-
-        Position memory position = morphoPool.position(Id.wrap(marketId), _borrower);
-
-        Market memory marketData = morphoPool.market(Id.wrap(marketId));
-
-        uint8 decimals = 34 + IERC20(market.loanToken).decimals() - IERC20(market.collateralToken).decimals();
-
-        price = price / 10 ** decimals;
-
-        uint256 borrowed =
-            uint256(position.borrowShares).toAssetsUp(marketData.totalBorrowAssets, marketData.totalBorrowShares);
-
-        // Greater than asset Price
-        if (_parameter == 0) {
-            return price > conditionValue;
-        } // Less than or equal to asset Price
-        else if (_parameter == 1) {
-            return price <= conditionValue;
-        } else if (_parameter == 2) {
-            return borrowed > conditionValue;
-        } // Less than or equal to debt balance
-        else if (_parameter == 3) {
-            return borrowed <= conditionValue;
-        }
-
-        return false;
-    }
-
     function executeOrder(address vault, bytes32 _orderId, address _solver, IRouter.Route[] calldata route)
         external
         payable
@@ -341,21 +171,21 @@ contract Handler is IHandler {
         IVault(vault).executeOrder{value: msg.value}(_orderId, _solver);
 
         if (destinationChainId == block.chainid) {
-            address depositToken = _getDepositToken(order.token, order.assetType);
+            address depositToken = _getDepositToken(order.baseToken, order.assetType);
 
             // transfer tokens
             IERC20(depositToken).transferFrom(vault, address(this), order.amount);
 
             // transform tokens
-            uint256 amount = handleTransformation(order.token, order.assetType, order.amount);
+            uint256 amount = handleTransformation(depositToken, order.baseToken, order.assetType, order.amount);
 
             // swap tokens
-            if (order.token != order.convert) {
-                amount = swap(amount, route, order.token, order.convert);
+            if (order.baseToken != order.outputToken) {
+                amount = swap(amount, route, order.baseToken, order.outputToken);
             }
 
             // Deposit or Repay
-            handleDeposit(order.convert, amount, _owner, order.platform, order.repay);
+            handleDeposit(order.outputToken, amount, _owner, order.platform, order.repay);
         } else {
             crossChainOrders[_orderId] = _solver;
         }
@@ -441,108 +271,51 @@ contract Handler is IHandler {
         }
     }
 
-    function handleTransformation(address token, uint16 assetType, uint256 amount) internal returns (uint256) {
-        if (assetType == 1) {
-            // Calling Aave Pool withdraw function
-            return aavePool.withdraw(token, amount, address(this));
+    function handleTransformation(address depositToken, address baseToken, uint16 assetType, uint256 amount)
+        internal
+        returns (uint256)
+    {
+        if (depositToken == baseToken) {
+            return amount;
         }
 
-        // Withdraw from Morpho Vaults
-        if (assetType >= 2 && assetType <= 1002) {
-            address vaultAddress = morphoVaults[convertToDepositAddress(assetType)];
-            return IMetaMorpho(vaultAddress).redeem(amount, address(this), address(this));
+        address actionAddress = actions[assetType];
+
+        if (actionAddress == address(0)) {
+            actionAddress = actions[assetType / 1000];
         }
 
-        return (amount);
+        if (actionAddress == address(0)) {
+            revert ActionAddressNotFound(assetType);
+        }
+
+        // Approve Call for Unwinding Poisition
+        IERC20(depositToken).approve(actionAddress, amount);
+
+        // Calling Action Handler for Unwing Position
+        return IActionHandler(actionAddress).unWindPosition(depositToken, baseToken, assetType, amount, address(this));
     }
 
     function handleDeposit(address token, uint256 amount, address _owner, uint16 _platform, bool repay) internal {
-        // Aave
-        if (_platform == 1) {
-            if (repay) {
-                // Repay Function
-                address variableDebtToken = aavePool.getReserveVariableDebtToken(token);
-
-                uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_owner);
-
-                uint256 repayValue = amount;
-                if (amount > debtBalance) {
-                    repayValue = debtBalance;
-                    IERC20(token).transfer(_owner, amount - debtBalance);
-                }
-
-                IERC20(token).approve(address(aavePool), repayValue);
-
-                aavePool.repay(token, repayValue, 2, _owner);
-            } else {
-                // Supply Function
-                IERC20(token).approve(address(aavePool), amount);
-                aavePool.supply(token, amount, _owner, 0);
-            }
-        }
-
-        // Deposit into Morpho vaults
-        if (_platform >= 2 && _platform <= 1002) {
-            address vaultAddress = morphoVaults[convertToDepositAddress(_platform)];
-            if (vaultAddress == address(0)) {
-                revert InvalidMorphoVault(_platform);
-            } else {
-                address confirmAsset = IMetaMorpho(vaultAddress).asset();
-
-                if (token != confirmAsset) {
-                    _platform = 0;
-                } else {
-                    IERC20(token).approve(vaultAddress, amount);
-                    IMetaMorpho(vaultAddress).deposit(amount, _owner);
-                }
-            }
-        }
-
-        //
-        if (_platform >= 1003 && _platform <= 2003) {
-            // Supply collateral or repay loans in morpho Markets
-            bytes32 marketId = morphoMarket[convertToDepositAddress(_platform)];
-
-            if (marketId == bytes32(0)) {
-                _platform = 0;
-            } else {
-                MarketParams memory market = morphoPool.idToMarketParams(Id.wrap(marketId));
-                // Repay s
-                if (repay && token == market.loanToken) {
-                    Position memory position = morphoPool.position(Id.wrap(marketId), _owner);
-
-                    Market memory marketData = morphoPool.market(Id.wrap(marketId));
-
-                    uint256 borrowed = uint256(position.borrowShares).toAssetsUp(
-                        marketData.totalBorrowAssets, marketData.totalBorrowShares
-                    );
-
-                    uint256 repayValue = amount;
-                    if (amount > borrowed) {
-                        repayValue = borrowed;
-                        IERC20(token).transfer(_owner, amount - borrowed);
-                    }
-
-                    morphoPool.repay(
-                        market,
-                        repayValue, // Amount of assets to repay
-                        0, // Use 0 for shares when specifying assets
-                        address(owner), // Repay on behalf of this contract
-                        "" // No callback data needed
-                    );
-                } else if (!repay && token == market.collateralToken) {
-                    IERC20(token).approve(address(morphoPool), amount);
-                    morphoPool.supplyCollateral(market, amount, _owner, "");
-                } else {
-                    _platform = 0;
-                }
-            }
-        }
-
         // Self Deposit
         if (_platform == 0) {
             IERC20(token).transfer(_owner, amount);
         }
+
+        address actionAddress = actions[_platform];
+
+        if (actionAddress == address(0)) {
+            actionAddress = actions[_platform / 1000];
+        }
+
+        if (actionAddress == address(0)) {
+            revert ActionAddressNotFound(_platform);
+        }
+
+        // Adding Approve Call
+        IERC20(token).approve(actionAddress, amount);
+
+        IActionHandler(actionAddress).handleDeposit(token, amount, _owner, repay, _platform);
     }
 
     function executeCrossChainOrder(address vault, bytes32 _orderId, uint32 destinationChainId) external {
@@ -552,13 +325,13 @@ contract Handler is IHandler {
         (address _owner, OrderExecutionDetails memory order) = IVault(vault).getOrderExecutionDetails(_orderId);
 
         // Get Deposit Token
-        address depositToken = _getDepositToken(order.token, order.assetType);
+        address depositToken = _getDepositToken(order.baseToken, order.assetType);
 
         // transfer tokens
         IERC20(depositToken).transferFrom(vault, address(this), order.amount);
 
         // transform tokens
-        uint256 amount = handleTransformation(order.token, order.assetType, order.amount);
+        uint256 amount = handleTransformation(depositToken, order.baseToken, order.assetType, order.amount);
 
         // TODO: Cross Chain transfer
         IERC20(depositToken).transfer(_owner, amount);
@@ -568,9 +341,9 @@ contract Handler is IHandler {
             IFactory(factory).getCrossChainData(destinationChainId);
 
         // Check that the base token is USDC
-        if (order.token != usdc) {
+        if (order.baseToken != usdc) {
             // Return Error
-            revert BaseTokenNotUSDC(order.token, usdc);
+            revert BaseTokenNotUSDC(order.baseToken, usdc);
         }
 
         // Approve Call to Token Messenger
@@ -585,7 +358,7 @@ contract Handler is IHandler {
             "handleCrossChainUSDC(bytes32 _orderId, address _vaultOwner, address _convert, uint16 _platform, bool _repay)",
             _orderId,
             _owner,
-            order.convert,
+            order.outputToken,
             order.platform,
             order.repay
         );
@@ -608,16 +381,21 @@ contract Handler is IHandler {
     }
 
     function _getDepositToken(address token, uint16 assetType) internal view returns (address) {
-        if (assetType == 1) {
-            return aavePool.getReserveAToken(token);
+        if (assetType == 0) {
+            return token;
         }
 
-        // Withdraw from Morpho Vaults
-        if (assetType >= 2 && assetType <= 1002) {
-            return morphoVaults[convertToDepositAddress(assetType)];
+        address actionAddress = actions[assetType];
+
+        if (actionAddress == address(0)) {
+            actionAddress = actions[assetType / 1000];
         }
 
-        return token;
+        if (actionAddress == address(0)) {
+            revert ActionAddressNotFound(assetType);
+        }
+
+        return IActionHandler(actionAddress).getDepositToken(token, assetType);
     }
 
     function swap(uint256 amount, IRouter.Route[] calldata route, address startToken, address endToken)
