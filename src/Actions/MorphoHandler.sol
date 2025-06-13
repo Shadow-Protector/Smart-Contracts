@@ -143,11 +143,13 @@ contract MorphoHandler is IActionHandler {
         return morphoVaults[convertToDepositAddress(_assetType)];
     }
 
-    function unWindPosition(address depositToken, address, uint16 assetType, uint256 amount, address handler) external returns (uint256) {
-       
+    function unWindPosition(address depositToken, address, uint16 assetType, uint256 amount, address handler)
+        external
+        returns (uint256)
+    {
         // Transfer Call from sender to this contract
         IERC20(depositToken).transferFrom(msg.sender, address(this), amount);
-       
+
         address vaultAddress = morphoVaults[convertToDepositAddress(assetType)];
         return IMetaMorpho(vaultAddress).redeem(amount, address(handler), address(this));
     }

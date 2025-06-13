@@ -71,8 +71,10 @@ contract AaveHandler is IActionHandler {
         }
     }
 
-    function unWindPosition(address depositToken, address baseToken, uint16, uint256 amount, address handler) external returns (uint256) {
-
+    function unWindPosition(address depositToken, address baseToken, uint16, uint256 amount, address handler)
+        external
+        returns (uint256)
+    {
         // Transfer Call from sender to this contract
         IERC20(depositToken).transferFrom(msg.sender, address(this), amount);
 
