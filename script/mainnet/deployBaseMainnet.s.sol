@@ -39,7 +39,7 @@ contract DeployScript is Script {
         vm.startBroadcast();
 
         // Deploy the Handler contract
-        Handler base_handler = new Handler(AavePool, AavePriceGetter, MorphoPool, AerodromeRouter);
+        Handler base_handler = new Handler(AerodromeRouter);
 
         console.log("Base Handler Deployed at:", address(base_handler));
 

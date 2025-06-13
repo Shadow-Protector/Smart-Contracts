@@ -45,7 +45,7 @@ contract DeployScript is Script {
         baseConfig = helperconfig.getConfig();
 
         // Deploy the Handler contract
-        baseHandler = new Handler(address(0), address(0), address(0), address(0));
+        baseHandler = new Handler(address(0));
 
         console.log("Base Handler Deployed at:", address(baseHandler));
 
@@ -75,7 +75,7 @@ contract DeployScript is Script {
 
         ethConfig = helperconfig.getConfig();
 
-        ethHandler = new Handler(address(0), address(0), address(0), address(0));
+        ethHandler = new Handler(address(0));
 
         console.log("ETH Handler Deployed at:", address(ethHandler));
 

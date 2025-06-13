@@ -9,7 +9,7 @@ contract ConditionEvaluatorTest is Test {
 
     function setUp() public {
         // Deploy the ConditionEvaulator contract
-        handler = new Handler(address(0), address(0), address(0), address(0));
+        handler = new Handler(address(0));
     }
 
     // function testEvaluateCondition() public {
