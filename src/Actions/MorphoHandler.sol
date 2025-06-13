@@ -155,16 +155,19 @@ contract MorphoHandler is IActionHandler {
     }
 
     function handleDeposit(address token, uint256 amount, address _owner, bool repay, uint16 _platform) external {
+        // Transfer Call from sender to this contract
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+
         // Deposit into Morpho vaults
         if (_platform >= 2 && _platform <= 1002) {
             address vaultAddress = morphoVaults[convertToDepositAddress(_platform)];
             if (vaultAddress == address(0)) {
-                revert InvalidMorphoVault(_platform);
+                transferToOwner(token, _owner, amount);
             } else {
                 address baseAsset = IMetaMorpho(vaultAddress).asset();
 
                 if (token != baseAsset) {
-                    revert InvalidVaultAsset(token, baseAsset);
+                    transferToOwner(token, _owner, amount);
                 } else {
                     IERC20(token).approve(vaultAddress, amount);
                     IMetaMorpho(vaultAddress).deposit(amount, _owner);
@@ -178,7 +181,7 @@ contract MorphoHandler is IActionHandler {
             bytes32 marketId = morphoMarket[convertToDepositAddress(_platform)];
 
             if (marketId == bytes32(0)) {
-                revert MorphoMarketNotFound(convertToDepositAddress(_platform));
+                transferToOwner(token, _owner, amount);
             } else {
                 MarketParams memory market = morphoPool.idToMarketParams(Id.wrap(marketId));
                 // Repay s
@@ -218,18 +221,23 @@ contract MorphoHandler is IActionHandler {
                         IERC20(token).transfer(_owner, amount - borrowed);
                     }
 
-                    morphoPool.repay(
+                    try morphoPool.repay(
                         market,
                         repayValue, // Amount of assets to repay
                         0, // Use 0 for shares when specifying assets
                         address(owner), // Repay on behalf of this contract
                         "" // No callback data needed
-                    );
+                    ) {} catch {
+                        transferToOwner(token, _owner, amount);
+                    }
                 } else if (!repay && token == market.collateralToken) {
                     IERC20(token).approve(address(morphoPool), amount);
-                    morphoPool.supplyCollateral(market, amount, _owner, "");
+                    try morphoPool.supplyCollateral(market, amount, _owner, "") {}
+                    catch {
+                        transferToOwner(token, _owner, amount);
+                    }
                 } else {
-                    revert InvalidMarketToken(token, market.collateralToken);
+                    transferToOwner(token, _owner, amount);
                 }
             }
         }
@@ -237,5 +245,9 @@ contract MorphoHandler is IActionHandler {
 
     function convertToDepositAddress(uint16 input) public pure returns (address) {
         return address(uint160(uint256(input)));
+    }
+
+    function transferToOwner(address token, address _owner, uint256 amount) internal {
+        IERC20(token).transfer(_owner, amount);
     }
 }

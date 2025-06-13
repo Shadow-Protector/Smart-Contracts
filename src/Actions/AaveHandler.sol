@@ -82,13 +82,17 @@ contract AaveHandler is IActionHandler {
     }
 
     function handleDeposit(address token, uint256 amount, address _owner, bool repay, uint16) external {
+        // Transfer Call from sender to this contract
+        IERC20(token).transferFrom(msg.sender, address(this), amount);
+
         if (repay) {
             // Repay Function
+            uint256 repayValue = amount;
+
             address variableDebtToken = aavePool.getReserveVariableDebtToken(token);
 
             uint256 debtBalance = IERC20(variableDebtToken).balanceOf(_owner);
 
-            uint256 repayValue = amount;
             if (amount > debtBalance) {
                 repayValue = debtBalance;
                 IERC20(token).transfer(_owner, amount - debtBalance);
@@ -96,11 +100,17 @@ contract AaveHandler is IActionHandler {
 
             IERC20(token).approve(address(aavePool), repayValue);
 
-            aavePool.repay(token, repayValue, 2, _owner);
+            try aavePool.repay(token, repayValue, 2, _owner) {}
+            catch {
+                IERC20(token).transfer(_owner, amount);
+            }
         } else {
             // Supply Function
             IERC20(token).approve(address(aavePool), amount);
-            aavePool.supply(token, amount, _owner, 0);
+            try aavePool.supply(token, amount, _owner, 0) {}
+            catch {
+                IERC20(token).transfer(_owner, amount);
+            }
         }
     }
 
