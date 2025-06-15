@@ -39,7 +39,7 @@ contract VaultFactory is IFactory {
 
     event OrderExecuted(address indexed vaultAddress, bytes32 indexed orderId);
 
-    event AssetDeposited(address vaultAddress, bytes32 orderId, address depositToken, address convertToken);
+    event AssetDeposited(address vaultAddress, bytes32 orderId, address baseToken, address outputToken);
 
     event CancelDeposit(address vaultAddress, bytes32 orderId);
 
@@ -120,12 +120,12 @@ contract VaultFactory is IFactory {
         emit OrderCancelled(msg.sender, OrderId);
     }
 
-    function emitDepositEvent(address _vaultOwner, bytes32 _orderId, address depositToken, address convertToken)
+    function emitDepositEvent(address _vaultOwner, bytes32 _orderId, address _baseToken, address _outputToken)
         external
     {
         assert(msg.sender == vaults[_vaultOwner]);
 
-        emit AssetDeposited(msg.sender, _orderId, depositToken, convertToken);
+        emit AssetDeposited(msg.sender, _orderId, _baseToken, _outputToken);
     }
 
     function emitCancelDeposit(address _vaultOwner, bytes32 _orderId) external {

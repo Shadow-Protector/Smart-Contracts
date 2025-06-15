@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-struct OrderExecutionDetails {
-    address token;
-    address convert;
-    uint256 amount;
-    uint16 assetType;
-    uint16 platform;
-    bool repay;
-}
-
 struct OrderDetails {
     uint256 conditionValue;
     // Order Tip Details
     address tipToken;
     uint256 tipAmount;
     bool crossChainActive;
+}
+
+struct OrderExecutionDetails {
+    address baseToken;
+    address outputToken;
+    uint256 amount;
+    uint16 assetType;
+    uint16 platform;
+    bool repay;
 }
 
 interface IVault {

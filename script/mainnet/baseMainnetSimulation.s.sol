@@ -80,7 +80,7 @@ contract DeployScript is Script {
         address USDC = 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913;
         uint256 decimal = 10 ** 5;
 
-        address CHAINLINK_PRICE_FEED = 0xd7818272B9e248357d13057AAb0B417aF31E817d;
+        // address CHAINLINK_PRICE_FEED = 0xd7818272B9e248357d13057AAb0B417aF31E817d;
 
         // Starting Simulation
 
@@ -173,10 +173,6 @@ contract DeployScript is Script {
 
         address vaultId = handler.convertToDepositAddress(3);
 
-        handler.addMorphoVault(vaultId, 0x7BfA7C4f149E7415b73bdeDfe609237e29CBF34A);
-
-        console.log("Morpho Vault", handler.morphoVaults(vaultId));
-
         handler.executeOrder(address(vault), orderId, 0xA01f6403d49857b58D3794C12E028c3681b24F98, routes);
 
         vm.stopBroadcast();
@@ -230,7 +226,7 @@ contract DeployScript is Script {
 
         assert(factory.checkCondition(0, AERO_PRICE_FEED, msg.sender, 0, 50) == true);
 
-        Handler newHandler = new Handler(AavePool, AavePriceGetter, MorphoPool, AerodromeRouter);
+        Handler newHandler = new Handler(AerodromeRouter);
         console.log("New Handler Deployed at:", address(newHandler));
 
         factory.updateHandler(address(newHandler));
