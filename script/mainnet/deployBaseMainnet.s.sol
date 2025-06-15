@@ -15,7 +15,6 @@ import {Handler} from "../../src/Handler.sol";
 import {AaveHandler} from "../../src/Actions/AaveHandler.sol";
 import {MorphoHandler} from "../../src/Actions/MorphoHandler.sol";
 
-
 contract DeployScript is Script {
     address constant CHAINLINK_PRICE_FEED = 0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1;
 
@@ -63,22 +62,22 @@ contract DeployScript is Script {
 
         console.log("Base Vault deployed at:", base_vault);
 
-        // Deploying Action Handlers 
+        // Deploying Action Handlers
 
-        AaveHandler aave_handler = new AaveHandler(AavePool, AavePriceGetter); 
+        AaveHandler aave_handler = new AaveHandler(AavePool, AavePriceGetter);
 
         console.log("Aave Handler Deployed at: ", address(aave_handler));
 
-        MorphoHandler morpho_handler = new MorphoHandler(MorphoPool); 
+        MorphoHandler morpho_handler = new MorphoHandler(MorphoPool);
 
         console.log("Morpho Handler Deployed at: ", address(morpho_handler));
 
-        // Integrating Condition Handlers with the Handler Contract 
+        // Integrating Condition Handlers with the Handler Contract
         base_handler.addConditionPlatform(1, address(aave_handler));
 
         base_handler.addConditionPlatform(2, address(morpho_handler));
 
-        // Integrating Action Handlers with the Handler contract 
+        // Integrating Action Handlers with the Handler contract
         base_handler.addActionPlatform(1, address(aave_handler));
 
         base_handler.addActionPlatform(2, address(morpho_handler));
