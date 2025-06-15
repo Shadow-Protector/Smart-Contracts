@@ -129,10 +129,6 @@ contract Handler is IHandler {
         }
     }
 
-    function getDepositToken(address token, uint16 assetType) external view returns (address) {
-        return _getDepositToken(token, assetType);
-    }
-
     function checkChainlinkCondition(address _V3InterfaceAddress, uint16 parameter, uint256 conditionValue)
         public
         view
@@ -155,6 +151,10 @@ contract Handler is IHandler {
         }
 
         return false;
+    }
+
+    function getDepositToken(address token, uint16 assetType) external view returns (address) {
+        return _getDepositToken(token, assetType);
     }
 
     function executeOrder(address vault, bytes32 _orderId, address _solver, IRouter.Route[] calldata route)
