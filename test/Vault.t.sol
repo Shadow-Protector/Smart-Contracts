@@ -27,7 +27,7 @@ contract VaultTest is Test {
 
     function setUp() public {
         // Deploy the ConditionEvaulator contract
-        handler = new Handler(address(0), address(0), address(0), address(0));
+        handler = new Handler(address(0));
 
         // Deploy the VaultFactory contract
         vaultFactory = new VaultFactory(address(handler), 0);

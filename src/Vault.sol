@@ -27,9 +27,8 @@ contract Vault is IVault {
     mapping(uint32 => address) private chainIdToAddress;
     mapping(bytes32 => OrderDetails) private orders;
     mapping(bytes32 => OrderExecutionDetails) private orderExecutionDetails;
-    // Errors
 
-    // Owner Check
+    // Errors
     error NotOwner(address sender, address owner);
 
     error TipAmountIsZero();
@@ -129,13 +128,14 @@ contract Vault is IVault {
         IFactory(factoryContract).emitCancelOrder(owner, _orderId);
 
         // Broadcast the order cancellation to send funds back to the user
-        broadcastOrderCancellation(_orderId, destinationChainId);
+        _broadcastOrderCancellation(_orderId, destinationChainId);
 
         // Delete the order from the mapping
         delete orders[_orderId];
     }
 
-    function broadcastOrderCancellation(bytes32 orderId, uint32 chainId) internal {
+    // Internal function to handle order cancellation
+    function _broadcastOrderCancellation(bytes32 orderId, uint32 chainId) internal {
         if (chainId == block.chainid) {
             _cancelAssetDeposit(orderId);
         } else {
@@ -169,7 +169,7 @@ contract Vault is IVault {
             revert ConditionEvaluationFailed();
         }
 
-        // TODO:Execute the order for cross-chain order
+        // Execute the order for cross-chain order
         _executeOrder(_orderId, destinationChainId, handler);
 
         IERC20(order.tipToken).transfer(_solver, order.tipAmount);
@@ -184,9 +184,12 @@ contract Vault is IVault {
             OrderExecutionDetails memory order = orderExecutionDetails[orderId];
 
             // Get the deposit token address
-            address depositToken = IFactory(factoryContract).getDepositToken(order.token, order.assetType);
+            (address depositToken, bool transfer) =
+                IFactory(factoryContract).getDepositToken(order.baseToken, order.assetType);
 
-            IERC20(depositToken).approve(handler, order.amount);
+            if (transfer) {
+                IERC20(depositToken).approve(handler, order.amount);
+            }
 
             // Deleting the order condition details
             delete orders[orderId];
@@ -203,33 +206,42 @@ contract Vault is IVault {
 
     function depositAsset(
         bytes32 _orderId,
-        address _token,
+        address _baseToken,
         uint16 _assetType,
-        address _convert,
+        address _outputToken,
         uint256 _tokenAmount,
         uint16 _platform,
         bool _repay
     ) external payable OnlyOwner {
-        if (orderExecutionDetails[_orderId].amount != 0) {
-            IERC20(orderExecutionDetails[_orderId].token).transfer(owner, orderExecutionDetails[_orderId].amount);
+        OrderExecutionDetails memory existingOrder = orderExecutionDetails[_orderId];
+
+        if (existingOrder.amount != 0) {
+            (address oldDepositToken, bool oldTransfer) =
+                IFactory(factoryContract).getDepositToken(existingOrder.baseToken, existingOrder.assetType);
+
+            if (oldTransfer) {
+                IERC20(oldDepositToken).transfer(owner, existingOrder.amount);
+            }
         }
 
         orderExecutionDetails[_orderId] = OrderExecutionDetails({
-            token: _token,
-            convert: _convert,
+            baseToken: _baseToken,
+            outputToken: _outputToken,
             amount: _tokenAmount,
             platform: _platform,
             assetType: _assetType,
             repay: _repay
         });
 
-        address depositToken = IFactory(factoryContract).getDepositToken(_token, _assetType);
+        (address depositToken, bool transfer) = IFactory(factoryContract).getDepositToken(_baseToken, _assetType);
 
-        // Transfer the token amount
-        IERC20(depositToken).transferFrom(owner, address(this), _tokenAmount);
+        if (transfer) {
+            // Transfer the token amount
+            IERC20(depositToken).transferFrom(owner, address(this), _tokenAmount);
+        }
 
         // Emit Event of asset Deposit to Factory Contract
-        IFactory(factoryContract).emitDepositEvent(owner, _orderId, _token, _convert);
+        IFactory(factoryContract).emitDepositEvent(owner, _orderId, _baseToken, _outputToken);
     }
 
     function cancelAssetDeposit(bytes32 _orderId) external OnlyOwner {
@@ -259,9 +271,13 @@ contract Vault is IVault {
 
         if (order.amount != 0) {
             // Get the deposit token address
-            address depositToken = IFactory(factoryContract).getDepositToken(order.token, order.assetType);
-            // Transfer the asset amount back to the sender
-            IERC20(depositToken).transfer(owner, order.amount);
+            (address depositToken, bool transfer) =
+                IFactory(factoryContract).getDepositToken(order.baseToken, order.assetType);
+
+            if (transfer) {
+                // Transfer the asset amount back to the sender
+                IERC20(depositToken).transfer(owner, order.amount);
+            }
 
             // Delete the order execution details from the mapping
             delete orderExecutionDetails[_orderId];
@@ -318,10 +334,13 @@ contract Vault is IVault {
             // Get the handler
             address handler = IFactory(factoryContract).getHandler();
             // Get the deposit token address
-            address depositToken =
-                IFactory(factoryContract).getDepositToken(orderExecution.token, orderExecution.assetType);
-            // approve the handler
-            IERC20(depositToken).approve(handler, orderExecution.amount);
+            (address depositToken, bool transfer) =
+                IFactory(factoryContract).getDepositToken(orderExecution.baseToken, orderExecution.assetType);
+
+            if (transfer) {
+                // approve the handler
+                IERC20(depositToken).approve(handler, orderExecution.amount);
+            }
             // Call the factory for cross-chain order execution
             IFactory(factoryContract).executeCrossChainOrder(owner, orderId, _origin);
         }
