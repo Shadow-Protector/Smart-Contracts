@@ -10,7 +10,7 @@ interface IActionHandler {
         uint256 _conditionValue
     ) external view returns (bool);
 
-    function getDepositToken(address token, uint16 assetType) external view returns (address);
+    function getDepositToken(address token, uint16 assetType) external view returns (address, bool);
 
     function unWindPosition(address depositToken, address baseToken, uint16 assetType, uint256 amount, address handler)
         external

@@ -153,7 +153,7 @@ contract Handler is IHandler {
         return false;
     }
 
-    function getDepositToken(address token, uint16 assetType) external view returns (address) {
+    function getDepositToken(address token, uint16 assetType) external view returns (address, bool) {
         return _getDepositToken(token, assetType);
     }
 
@@ -171,11 +171,12 @@ contract Handler is IHandler {
         IVault(vault).executeOrder{value: msg.value}(_orderId, _solver);
 
         if (destinationChainId == block.chainid) {
-            address depositToken = _getDepositToken(order.baseToken, order.assetType);
+            (address depositToken, bool transfer) = _getDepositToken(order.baseToken, order.assetType);
 
-            // transfer tokens
-            IERC20(depositToken).transferFrom(vault, address(this), order.amount);
-
+            if (transfer) {
+                // transfer tokens
+                IERC20(depositToken).transferFrom(vault, address(this), order.amount);
+            }
             // transform tokens
             uint256 amount = handleTransformation(depositToken, order.baseToken, order.assetType, order.amount);
 
@@ -325,10 +326,12 @@ contract Handler is IHandler {
         (address _owner, OrderExecutionDetails memory order) = IVault(vault).getOrderExecutionDetails(_orderId);
 
         // Get Deposit Token
-        address depositToken = _getDepositToken(order.baseToken, order.assetType);
+        (address depositToken, bool transfer) = _getDepositToken(order.baseToken, order.assetType);
 
-        // transfer tokens
-        IERC20(depositToken).transferFrom(vault, address(this), order.amount);
+        if (transfer) {
+            // transfer tokens
+            IERC20(depositToken).transferFrom(vault, address(this), order.amount);
+        }
 
         // transform tokens
         uint256 amount = handleTransformation(depositToken, order.baseToken, order.assetType, order.amount);
@@ -380,9 +383,9 @@ contract Handler is IHandler {
         IFactory(factory).emitCrossChainHook(vault, _orderId, destinationChainId);
     }
 
-    function _getDepositToken(address token, uint16 assetType) internal view returns (address) {
+    function _getDepositToken(address token, uint16 assetType) internal view returns (address, bool) {
         if (assetType == 0) {
-            return token;
+            return (token, true);
         }
 
         address actionAddress = actions[assetType];

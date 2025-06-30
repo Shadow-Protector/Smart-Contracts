@@ -48,7 +48,7 @@ interface IFactory {
 
     function getHandler() external view returns (address);
 
-    function getDepositToken(address token, uint16 assetType) external view returns (address);
+    function getDepositToken(address token, uint16 assetType) external view returns (address, bool);
 
     function platformFee() external view returns (uint256);
 

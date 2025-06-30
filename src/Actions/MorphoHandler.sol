@@ -139,8 +139,8 @@ contract MorphoHandler is IActionHandler {
         return false;
     }
 
-    function getDepositToken(address, uint16 _assetType) external view returns (address) {
-        return morphoVaults[convertToDepositAddress(_assetType)];
+    function getDepositToken(address, uint16 _assetType) external view returns (address, bool) {
+        return (morphoVaults[convertToDepositAddress(_assetType)], true);
     }
 
     function unWindPosition(address depositToken, address, uint16 assetType, uint256 amount, address handler)

@@ -63,11 +63,11 @@ contract AaveHandler is IActionHandler {
         return false;
     }
 
-    function getDepositToken(address token, uint16 _assetType) external view returns (address) {
+    function getDepositToken(address token, uint16 _assetType) external view returns (address, bool) {
         if (_assetType == 1) {
-            return aavePool.getReserveAToken(token);
+            return (aavePool.getReserveAToken(token), true);
         } else {
-            return aavePool.getReserveVariableDebtToken(token);
+            return (aavePool.getReserveVariableDebtToken(token), true);
         }
     }
 

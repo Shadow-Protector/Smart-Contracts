@@ -164,7 +164,7 @@ contract VaultFactory is IFactory {
         IVault(vaultAddress).sendTipForCrossChainOrder(_orderId, _solver);
     }
 
-    function getDepositToken(address token, uint16 assetType) external view returns (address) {
+    function getDepositToken(address token, uint16 assetType) external view returns (address, bool) {
         return IHandler(handler).getDepositToken(token, assetType);
     }
 

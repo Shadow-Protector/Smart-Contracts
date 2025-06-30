@@ -184,9 +184,12 @@ contract Vault is IVault {
             OrderExecutionDetails memory order = orderExecutionDetails[orderId];
 
             // Get the deposit token address
-            address depositToken = IFactory(factoryContract).getDepositToken(order.baseToken, order.assetType);
+            (address depositToken, bool transfer) =
+                IFactory(factoryContract).getDepositToken(order.baseToken, order.assetType);
 
-            IERC20(depositToken).approve(handler, order.amount);
+            if (transfer) {
+                IERC20(depositToken).approve(handler, order.amount);
+            }
 
             // Deleting the order condition details
             delete orders[orderId];
@@ -213,9 +216,12 @@ contract Vault is IVault {
         OrderExecutionDetails memory existingOrder = orderExecutionDetails[_orderId];
 
         if (existingOrder.amount != 0) {
-            address oldDepositToken =
+            (address oldDepositToken, bool oldTransfer) =
                 IFactory(factoryContract).getDepositToken(existingOrder.baseToken, existingOrder.assetType);
-            IERC20(oldDepositToken).transfer(owner, existingOrder.amount);
+
+            if (oldTransfer) {
+                IERC20(oldDepositToken).transfer(owner, existingOrder.amount);
+            }
         }
 
         orderExecutionDetails[_orderId] = OrderExecutionDetails({
@@ -227,10 +233,12 @@ contract Vault is IVault {
             repay: _repay
         });
 
-        address depositToken = IFactory(factoryContract).getDepositToken(_baseToken, _assetType);
+        (address depositToken, bool transfer) = IFactory(factoryContract).getDepositToken(_baseToken, _assetType);
 
-        // Transfer the token amount
-        IERC20(depositToken).transferFrom(owner, address(this), _tokenAmount);
+        if (transfer) {
+            // Transfer the token amount
+            IERC20(depositToken).transferFrom(owner, address(this), _tokenAmount);
+        }
 
         // Emit Event of asset Deposit to Factory Contract
         IFactory(factoryContract).emitDepositEvent(owner, _orderId, _baseToken, _outputToken);
@@ -263,9 +271,13 @@ contract Vault is IVault {
 
         if (order.amount != 0) {
             // Get the deposit token address
-            address depositToken = IFactory(factoryContract).getDepositToken(order.baseToken, order.assetType);
-            // Transfer the asset amount back to the sender
-            IERC20(depositToken).transfer(owner, order.amount);
+            (address depositToken, bool transfer) =
+                IFactory(factoryContract).getDepositToken(order.baseToken, order.assetType);
+
+            if (transfer) {
+                // Transfer the asset amount back to the sender
+                IERC20(depositToken).transfer(owner, order.amount);
+            }
 
             // Delete the order execution details from the mapping
             delete orderExecutionDetails[_orderId];
@@ -322,10 +334,13 @@ contract Vault is IVault {
             // Get the handler
             address handler = IFactory(factoryContract).getHandler();
             // Get the deposit token address
-            address depositToken =
+            (address depositToken, bool transfer) =
                 IFactory(factoryContract).getDepositToken(orderExecution.baseToken, orderExecution.assetType);
-            // approve the handler
-            IERC20(depositToken).approve(handler, orderExecution.amount);
+
+            if (transfer) {
+                // approve the handler
+                IERC20(depositToken).approve(handler, orderExecution.amount);
+            }
             // Call the factory for cross-chain order execution
             IFactory(factoryContract).executeCrossChainOrder(owner, orderId, _origin);
         }
