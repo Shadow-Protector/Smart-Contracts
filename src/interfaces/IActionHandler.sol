@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.26;
 
-interface IHandler {
+interface IActionHandler {
     function evaluateCondition(
         uint16 _platform,
         address _platformAddress,
@@ -12,5 +12,14 @@ interface IHandler {
 
     function getDepositToken(address token, uint16 assetType) external view returns (address, bool);
 
-    function executeCrossChainOrder(address vault, bytes32 orderId, uint32 destinationChainId) external;
+    function unWindPosition(
+        address depositToken,
+        address baseToken,
+        uint16 assetType,
+        uint256 amount,
+        address handler,
+        address owner
+    ) external returns (uint256);
+
+    function handleDeposit(address token, uint256 amount, address _owner, bool repay, uint16 _platform) external;
 }

@@ -7,10 +7,13 @@ import {IERC20} from "forge-std/interfaces/IERC20.sol";
 import {AggregatorV3Interface} from "foundry-chainlink-toolkit/src/interfaces/feeds/AggregatorV3Interface.sol";
 import {IRouter} from "../../src/interfaces/aerodrome/IRouter.sol";
 
-import {Handler} from "../../src/Handler.sol";
 import {VaultFactory} from "../../src/Factory.sol";
 import {Vault} from "../../src/Vault.sol";
 import {VaultDeployer} from "../../src/Deployer.sol";
+import {Handler} from "../../src/Handler.sol";
+
+import {AaveHandler} from "../../src/Actions/AaveHandler.sol";
+import {MorphoHandler} from "../../src/Actions/MorphoHandler.sol";
 
 contract DeployScript is Script {
     address constant CHAINLINK_PRICE_FEED = 0x4aDC67696bA383F43DD60A9e78F2C97Fbbfc7cb1;
@@ -28,10 +31,10 @@ contract DeployScript is Script {
     function setUp() public {}
 
     function run() public {
-        simulationScript();
+        deployBaseMainnet();
     }
 
-    function simulationScript() public {
+    function deployBaseMainnet() public {
         uint256 base_mainnet = vm.createFork(vm.rpcUrl("base_mainnet"));
 
         vm.selectFork(base_mainnet);
@@ -39,7 +42,7 @@ contract DeployScript is Script {
         vm.startBroadcast();
 
         // Deploy the Handler contract
-        Handler base_handler = new Handler(AavePool, AavePriceGetter, MorphoPool, AerodromeRouter);
+        Handler base_handler = new Handler(AerodromeRouter);
 
         console.log("Base Handler Deployed at:", address(base_handler));
 
@@ -58,6 +61,26 @@ contract DeployScript is Script {
         address payable base_vault = payable(base_deployer.deployVault());
 
         console.log("Base Vault deployed at:", base_vault);
+
+        // Deploying Action Handlers
+
+        AaveHandler aave_handler = new AaveHandler(AavePool, AavePriceGetter, address(base_handler));
+
+        console.log("Aave Handler Deployed at: ", address(aave_handler));
+
+        MorphoHandler morpho_handler = new MorphoHandler(MorphoPool);
+
+        console.log("Morpho Handler Deployed at: ", address(morpho_handler));
+
+        // Integrating Condition Handlers with the Handler Contract
+        base_handler.addConditionPlatform(1, address(aave_handler));
+
+        base_handler.addConditionPlatform(2, address(morpho_handler));
+
+        // Integrating Action Handlers with the Handler contract
+        base_handler.addActionPlatform(1, address(aave_handler));
+
+        base_handler.addActionPlatform(2, address(morpho_handler));
 
         vm.stopBroadcast();
     }
