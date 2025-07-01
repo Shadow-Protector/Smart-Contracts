@@ -68,3 +68,16 @@ $ forge --help
 $ anvil --help
 $ cast --help
 ```
+
+### RPC Endpoints 
+Add the following section to the foundry.toml for deployment and simulation
+
+
+    [rpc_endpoints]
+    polygon_pos_mainnet = "" 
+
+    base_mainnet = ""
+    arbitrum=""
+
+    base_sepolia = ""
+    eth_sepolia = ""
