@@ -12,9 +12,14 @@ interface IActionHandler {
 
     function getDepositToken(address token, uint16 assetType) external view returns (address, bool);
 
-    function unWindPosition(address depositToken, address baseToken, uint16 assetType, uint256 amount, address handler)
-        external
-        returns (uint256);
+    function unWindPosition(
+        address depositToken,
+        address baseToken,
+        uint16 assetType,
+        uint256 amount,
+        address handler,
+        address owner
+    ) external returns (uint256);
 
     function handleDeposit(address token, uint256 amount, address _owner, bool repay, uint16 _platform) external;
 }

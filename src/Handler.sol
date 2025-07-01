@@ -178,7 +178,7 @@ contract Handler is IHandler {
                 IERC20(depositToken).transferFrom(vault, address(this), order.amount);
             }
             // transform tokens
-            uint256 amount = handleTransformation(depositToken, order.baseToken, order.assetType, order.amount);
+            uint256 amount = handleTransformation(depositToken, order.baseToken, order.assetType, order.amount, owner);
 
             // swap tokens
             if (order.baseToken != order.outputToken) {
@@ -272,10 +272,13 @@ contract Handler is IHandler {
         }
     }
 
-    function handleTransformation(address depositToken, address baseToken, uint16 assetType, uint256 amount)
-        internal
-        returns (uint256)
-    {
+    function handleTransformation(
+        address depositToken,
+        address baseToken,
+        uint16 assetType,
+        uint256 amount,
+        address owner
+    ) internal returns (uint256) {
         if (depositToken == baseToken) {
             return amount;
         }
@@ -294,7 +297,9 @@ contract Handler is IHandler {
         IERC20(depositToken).approve(actionAddress, amount);
 
         // Calling Action Handler for Unwing Position
-        return IActionHandler(actionAddress).unWindPosition(depositToken, baseToken, assetType, amount, address(this));
+        return IActionHandler(actionAddress).unWindPosition(
+            depositToken, baseToken, assetType, amount, address(this), owner
+        );
     }
 
     function handleDeposit(address token, uint256 amount, address _owner, uint16 _platform, bool repay) internal {
@@ -334,7 +339,7 @@ contract Handler is IHandler {
         }
 
         // transform tokens
-        uint256 amount = handleTransformation(depositToken, order.baseToken, order.assetType, order.amount);
+        uint256 amount = handleTransformation(depositToken, order.baseToken, order.assetType, order.amount, _owner);
 
         // TODO: Cross Chain transfer
         IERC20(depositToken).transfer(_owner, amount);

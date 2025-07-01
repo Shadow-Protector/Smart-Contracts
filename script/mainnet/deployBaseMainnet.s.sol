@@ -64,7 +64,7 @@ contract DeployScript is Script {
 
         // Deploying Action Handlers
 
-        AaveHandler aave_handler = new AaveHandler(AavePool, AavePriceGetter);
+        AaveHandler aave_handler = new AaveHandler(AavePool, AavePriceGetter, address(base_handler));
 
         console.log("Aave Handler Deployed at: ", address(aave_handler));
 

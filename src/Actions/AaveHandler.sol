@@ -14,7 +14,7 @@ contract AaveHandler is IActionHandler {
     // Storage
     IAavePool public immutable aavePool;
     IPriceOracleGetter public immutable aavePriceGetter;
-
+    address public immutable handler;
     address public owner;
 
     // Events
@@ -23,10 +23,11 @@ contract AaveHandler is IActionHandler {
     // Errors
     error NotOwner(address sender, address owner);
 
-    constructor(address _aavePool, address _aavePriceGetter) {
+    constructor(address _aavePool, address _aavePriceGetter, address _handler) {
         owner = msg.sender;
         aavePool = IAavePool(_aavePool);
         aavePriceGetter = IPriceOracleGetter(_aavePriceGetter);
+        handler = _handler;
     }
 
     modifier OnlyOwner() {
@@ -66,19 +67,32 @@ contract AaveHandler is IActionHandler {
     function getDepositToken(address token, uint16 _assetType) external view returns (address, bool) {
         if (_assetType == 1) {
             return (aavePool.getReserveAToken(token), true);
-        } else {
+        } else if (_assetType == 2) {
             return (aavePool.getReserveVariableDebtToken(token), true);
+        } else {
+            return (token, false);
         }
     }
 
-    function unWindPosition(address depositToken, address baseToken, uint16, uint256 amount, address handler)
-        external
-        returns (uint256)
-    {
-        // Transfer Call from sender to this contract
-        IERC20(depositToken).transferFrom(msg.sender, address(this), amount);
+    function unWindPosition(
+        address depositToken,
+        address baseToken,
+        uint16 assetType,
+        uint256 amount,
+        address handler,
+        address onBehalfOf
+    ) external returns (uint256) {
+        if (assetType == 1) {
+            // Transfer Call from sender to this contract
+            IERC20(depositToken).transferFrom(msg.sender, address(this), amount);
 
-        return aavePool.withdraw(baseToken, amount, handler);
+            return aavePool.withdraw(baseToken, amount, handler);
+        } else {
+            aavePool.borrow(baseToken, amount, 2, 0, onBehalfOf);
+
+            IERC20(baseToken).transferFrom(address(this), handler, amount);
+            return amount;
+        }
     }
 
     function handleDeposit(address token, uint256 amount, address _owner, bool repay, uint16) external {
