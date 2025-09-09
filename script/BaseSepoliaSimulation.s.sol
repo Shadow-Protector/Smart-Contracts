@@ -53,7 +53,7 @@ contract DeployScript is Script {
         vm.startBroadcast();
 
         // Deploy the Handler contract
-        Handler handler = new Handler(address(0), address(0), address(0), address(0));
+        Handler handler = new Handler(address(0));
 
         console.log("Handeler Deployed at:", address(handler));
 
